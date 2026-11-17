@@ -340,7 +340,7 @@ export const UserInfoOutputSchema = z.object({
     lang: z.string(),
     status: z
         .object({
-            message: z.string(),
+            message: z.string().optional().describe('Omitted when the status is only an emoji.'),
             emoji: z.string().optional(),
             activeUntil: z
                 .string()

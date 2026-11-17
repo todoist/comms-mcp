@@ -104,6 +104,27 @@ describe(`${USER_INFO} tool`, () => {
         expect(UserInfoOutputSchema.safeParse(structured).success).toBe(true)
     })
 
+    // A status can be just an emoji, which Comms returns with a null or absent message.
+    it.each([
+        ['null', { message: null, emoji: '🎯' }],
+        ['absent', { emoji: '🎯' }],
+    ])('reports an emoji-only status whose message is %s', async (_label, status) => {
+        mockCommsApi.users.getSessionUser.mockResolvedValue(createMockUser({ status }))
+
+        const result = await userInfo.execute({}, mockCommsApi)
+
+        expect(extractTextContent(result)).toMatch(
+            /\*\*Status:\*\* 🎯\n\*\*Status Until:\*\* no end$/,
+        )
+        const structured = extractStructuredContent(result)
+        expect(structured.status).toStrictEqual({
+            emoji: '🎯',
+            pauseNotifications: false,
+            pauseActivity: false,
+        })
+        expect(UserInfoOutputSchema.safeParse(structured).success).toBe(true)
+    })
+
     it('reports an end it cannot read as sent, rather than failing', async () => {
         mockCommsApi.users.getSessionUser.mockResolvedValue(
             createMockUser({ status: { message: 'Away', activeUntil: 'tomorrow' } }),

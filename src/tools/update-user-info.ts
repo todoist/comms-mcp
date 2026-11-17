@@ -214,7 +214,7 @@ function normaliseEmoji(emoji: string | null | undefined): string | null {
     return emoji?.replace(/\uFE0F/g, '').trim() || null
 }
 
-function normaliseMessage(message: string | undefined): string | undefined {
+function normaliseMessage(message: string | null | undefined): string | undefined {
     return message?.normalize('NFC').replace(/\s+/g, ' ').trim()
 }
 

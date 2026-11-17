@@ -13,7 +13,7 @@ function normaliseActiveUntil(activeUntil: string): string {
 function toStatusOutput(status: UserStatus): StatusOutput {
     const activeUntil = status.activeUntil ? normaliseActiveUntil(status.activeUntil) : undefined
     return {
-        message: status.message,
+        ...(status.message ? { message: status.message } : {}),
         ...(status.emoji ? { emoji: status.emoji } : {}),
         ...(activeUntil ? { activeUntil } : {}),
         pauseNotifications: Boolean(status.effects?.pauseNotifications),
@@ -27,7 +27,8 @@ function describeStatus(status: StatusOutput | undefined): string[] {
         return ['**Status:** none']
     }
 
-    const lines = [`**Status:** ${status.emoji ? `${status.emoji} ` : ''}${status.message}`]
+    // A status has a message, an emoji or both.
+    const lines = [`**Status:** ${[status.emoji, status.message].filter(Boolean).join(' ')}`]
     lines.push(`**Status Until:** ${status.activeUntil ?? 'no end'}`)
     const effects = [
         status.pauseNotifications ? 'Comms notifications paused' : undefined,
