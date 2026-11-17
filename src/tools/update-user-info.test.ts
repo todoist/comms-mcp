@@ -311,6 +311,39 @@ describe(`${UPDATE_USER_INFO} tool`, () => {
             )
         })
 
+        it('says reconnecting will not help when the token reads but the profile update gets a 401', async () => {
+            mockCommsApi.users.update.mockRejectedValue(
+                // The text Comms sent on 2026-11-17, full stop included.
+                new CommsRequestError('Request failed with status 401', 401, {
+                    error_code: 401,
+                    error_string: 'Todoist rejected the forwarded bearer token.',
+                }),
+            )
+
+            await expect(
+                updateUserInfo.execute({ timezone: 'Europe/London' }, mockCommsApi),
+            ).rejects.toThrow(
+                exactly(
+                    `Comms refused to change the profile (HTTP 401): Todoist rejected the forwarded bearer token. The connection still reads the profile, so the token is valid and reconnecting will not fix this. Use ${USER_INFO} to check it.`,
+                ),
+            )
+        })
+
+        it('points at the token when the profile update gets a 401 and the token no longer reads', async () => {
+            mockCommsApi.users.update.mockRejectedValue(
+                new CommsRequestError('Request failed with status 401', 401),
+            )
+            mockCommsApi.users.getSessionUser.mockRejectedValue(
+                new CommsRequestError('Request failed with status 401', 401),
+            )
+
+            await expect(updateUserInfo.execute({ lang: 'en' }, mockCommsApi)).rejects.toThrow(
+                exactly(
+                    `Comms refused to change the profile (HTTP 401). Comms rejected the token, so the connection may need reconnecting. Use ${USER_INFO} to check it.`,
+                ),
+            )
+        })
+
         it('calls a server error on the profile unconfirmed', async () => {
             mockCommsApi.users.update.mockRejectedValue(
                 new CommsRequestError('Request failed with status 502', 502),
