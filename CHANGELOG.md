@@ -1,3 +1,9 @@
+## [11.2.0](https://github.com/todoist/comms-mcp/compare/v11.1.0...v11.2.0) (2026-11-23)
+
+### Features
+
+* close or reopen a thread from reply ([#98](https://github.com/todoist/comms-mcp/issues/98)) ([9147c88](https://github.com/todoist/comms-mcp/commit/9147c88346944a9890dc81da3eff28df24c83fd3))
+
 ## [11.1.0](https://github.com/todoist/comms-mcp/compare/v11.0.5...v11.1.0) (2026-11-17)
 
 ### Features
