@@ -312,6 +312,35 @@ describe(`${GET_MENTIONS} tool`, () => {
         )
     })
 
+    it('flags a mention in a closed thread', async () => {
+        mockCommsApi.search.search.mockResolvedValue({
+            items: [
+                {
+                    id: `thread_${TEST_IDS.THREAD_1}`,
+                    type: 'thread' as const,
+                    snippet: 'You were mentioned here',
+                    snippetCreatorId: TEST_IDS.USER_1,
+                    snippetLastUpdated: new Date('2024-01-01T00:00:00Z'),
+                    threadId: TEST_IDS.THREAD_1,
+                    closed: true,
+                },
+            ],
+            hasMore: false,
+            isPlanRestricted: false,
+        })
+        mockCommsApi.workspaceUsers.getUsersByIds.mockImplementation(usersByIds([]))
+
+        const result = await getMentions.execute(
+            { workspaceId: TEST_IDS.WORKSPACE_1, limit: 50 },
+            mockCommsApi,
+        )
+
+        expect(result.structuredContent?.results).toEqual([
+            expect.objectContaining({ threadId: TEST_IDS.THREAD_1, isClosed: true }),
+        ])
+        expect(extractTextContent(result)).toContain(`**Thread:** ${TEST_IDS.THREAD_1} [closed]`)
+    })
+
     it('handles no results found', async () => {
         mockCommsApi.search.search.mockResolvedValue({
             items: [],

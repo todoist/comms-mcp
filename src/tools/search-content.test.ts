@@ -270,6 +270,59 @@ describe(`${SEARCH_CONTENT} tool`, () => {
         })
     })
 
+    describe('thread state', () => {
+        it('should flag closed threads and leave unknown state unset', async () => {
+            mockCommsApi.search.search.mockResolvedValue({
+                items: [
+                    {
+                        id: `thread_${TEST_IDS.THREAD_1}`,
+                        type: 'thread' as const,
+                        snippet: 'Closed thread matching query',
+                        snippetCreatorId: TEST_IDS.USER_1,
+                        snippetLastUpdated: new Date('2024-01-01T00:00:00Z'),
+                        threadId: TEST_IDS.THREAD_1,
+                        closed: true,
+                    },
+                    {
+                        id: `thread_${TEST_IDS.THREAD_2}`,
+                        type: 'thread' as const,
+                        snippet: 'Open thread matching query',
+                        snippetCreatorId: TEST_IDS.USER_1,
+                        snippetLastUpdated: new Date('2024-01-01T00:00:00Z'),
+                        threadId: TEST_IDS.THREAD_2,
+                        closed: false,
+                    },
+                    {
+                        id: `thread_${TEST_IDS.THREAD_3}`,
+                        type: 'thread' as const,
+                        snippet: 'Thread without state',
+                        snippetCreatorId: TEST_IDS.USER_1,
+                        snippetLastUpdated: new Date('2024-01-01T00:00:00Z'),
+                        threadId: TEST_IDS.THREAD_3,
+                    },
+                ],
+                hasMore: false,
+                isPlanRestricted: false,
+            })
+            mockCommsApi.workspaceUsers.getUsersByIds.mockImplementation(usersByIds([]))
+
+            const result = await searchContent.execute(
+                { query: 'thread', workspaceId: TEST_IDS.WORKSPACE_1, limit: 50 },
+                mockCommsApi,
+            )
+
+            const textContent = extractTextContent(result)
+            expect(textContent).toContain(`**Thread:** ${TEST_IDS.THREAD_1} [closed]`)
+            expect(textContent).toContain(`**Thread:** ${TEST_IDS.THREAD_2}\n`)
+            const results = result.structuredContent?.results ?? []
+            expect(results.map((r) => (r.type === 'thread' ? r.isClosed : null))).toEqual([
+                true,
+                false,
+                undefined,
+            ])
+        })
+    })
+
     describe('conversation results', () => {
         it('should handle conversation type results with correct URL', async () => {
             mockCommsApi.search.search.mockResolvedValue({

@@ -8,6 +8,7 @@ import {
     NOTIFY_AUDIENCES,
     SearchResultSchema,
     ThreadSchema,
+    THREAD_ACTIONS,
     UnreadConversationSchema,
     UnreadThreadSchema,
     UserSchema,
@@ -93,6 +94,7 @@ export const LoadThreadOutputSchema = z.object({
         commentCount: z.number(),
         isArchived: z.boolean(),
         inInbox: z.boolean(),
+        isClosed: z.boolean(),
         participants: z.array(z.number()).optional(),
         participantNames: z.array(z.string()).optional(),
         threadUrl: z.string(),
@@ -157,6 +159,7 @@ export const FetchInboxOutputSchema = z.object({
             creator: z.number(),
             isUnread: z.boolean(),
             isArchived: z.boolean(),
+            isClosed: z.boolean(),
             isStarred: z.boolean(),
             threadUrl: z.string(),
         }),
@@ -210,6 +213,7 @@ export const SearchResultItemSchema = z.discriminatedUnion('type', [
             .describe('The matched comment id, set when the match is a comment in the thread.'),
         channelId: z.string().optional(),
         channelName: z.string().optional(),
+        isClosed: z.boolean().optional(),
     }),
     z.object({
         ...searchResultItemBaseShape,
@@ -578,6 +582,7 @@ export const ReplyOutputSchema = z.object({
     recipients: z.array(z.number()).optional(),
     notifyAudience: z.enum(NOTIFY_AUDIENCES).optional(),
     groups: z.array(z.string()).optional(),
+    threadAction: z.enum(THREAD_ACTIONS).optional(),
 })
 
 /**

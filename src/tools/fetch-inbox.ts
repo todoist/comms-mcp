@@ -55,6 +55,7 @@ type FetchInboxStructured = {
         creator: number
         isUnread: boolean
         isArchived: boolean
+        isClosed: boolean
         isStarred: boolean
         threadUrl: string
     }>
@@ -243,10 +244,11 @@ const fetchInbox = {
                     thread.title = `[${channel.name}] ${thread.title}`
                 }
                 const archivedBadge = thread.isArchived ? ' [archived]' : ''
+                const closedBadge = thread.closed ? ' [closed]' : ''
                 const unreadBadge = thread.isUnread ? ' [unread]' : ''
                 const starBadge = thread.isSaved ? ' [saved]' : ''
                 lines.push(
-                    `- ${thread.title}${archivedBadge}${unreadBadge}${starBadge}${channelDetails} (ID: ${thread.id})`,
+                    `- ${thread.title}${archivedBadge}${closedBadge}${unreadBadge}${starBadge}${channelDetails} (ID: ${thread.id})`,
                 )
             }
             lines.push('')
@@ -291,6 +293,7 @@ const fetchInbox = {
                 creator: t.creator,
                 isUnread: t.isUnread,
                 isArchived: t.isArchived,
+                isClosed: t.closed,
                 isStarred: Boolean(t.isSaved),
                 threadUrl:
                     t.url ??

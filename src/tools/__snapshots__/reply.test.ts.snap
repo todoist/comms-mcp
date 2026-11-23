@@ -1,5 +1,31 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`reply tool > closing and reopening threads > should close a thread with the reply when threadAction is close 1`] = `
+"# Reply Posted
+
+**Target:** Thread thread-id-1
+**Reply ID:** comment-id-1
+**Created:** 2024-01-01T00:00:00.000Z
+**Thread state:** Closed
+
+## Content
+
+Shipped, closing this."
+`;
+
+exports[`reply tool > closing and reopening threads > should reopen a thread with the reply when threadAction is reopen 1`] = `
+"# Reply Posted
+
+**Target:** Thread thread-id-1
+**Reply ID:** comment-id-1
+**Created:** 2024-01-01T00:00:00.000Z
+**Thread state:** Reopened
+
+## Content
+
+Reopening, the fix regressed."
+`;
+
 exports[`reply tool > replying to conversations > should post a message to a conversation 1`] = `
 "# Reply Posted
 

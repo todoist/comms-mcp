@@ -114,7 +114,9 @@ const getMentions = {
                 )
 
                 if (result.type === 'thread') {
-                    lines.push(`**Thread:** ${result.threadId}`)
+                    lines.push(
+                        `**Thread:** ${result.threadId}${result.isClosed ? ' [closed]' : ''}`,
+                    )
                     if (result.commentId) {
                         lines.push(`**Comment:** ${result.commentId}`)
                     }
