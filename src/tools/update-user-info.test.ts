@@ -344,6 +344,30 @@ describe(`${UPDATE_USER_INFO} tool`, () => {
             )
         })
 
+        it.each([
+            ['a server error', new CommsRequestError('Request failed with status 502', 502)],
+            ['a network error', new Error('fetch failed')],
+        ])(
+            'stays neutral about reconnecting when the check read fails with %s',
+            async (_label, readError) => {
+                mockCommsApi.users.update.mockRejectedValue(
+                    new CommsRequestError('Request failed with status 401', 401, {
+                        error_code: 401,
+                        error_string: 'Todoist rejected the forwarded bearer token.',
+                    }),
+                )
+                mockCommsApi.users.getSessionUser.mockRejectedValue(readError)
+
+                await expect(
+                    updateUserInfo.execute({ timezone: 'Europe/London' }, mockCommsApi),
+                ).rejects.toThrow(
+                    exactly(
+                        `Comms refused to change the profile (HTTP 401): Todoist rejected the forwarded bearer token. Use ${USER_INFO} to check it.`,
+                    ),
+                )
+            },
+        )
+
         it('calls a server error on the profile unconfirmed', async () => {
             mockCommsApi.users.update.mockRejectedValue(
                 new CommsRequestError('Request failed with status 502', 502),

@@ -218,7 +218,8 @@ const TODOIST_REFUSED_HINT =
 /**
  * Comms hands a name, timezone or language change to Todoist with the caller's token, and Todoist
  * refuses some tokens Comms accepts, so a 401 alone does not say the token is bad. A read with the
- * same token tells the two apart.
+ * same token tells the two apart. Only a 401 on that read says the token is dead; any other
+ * failure says nothing about it, so the message stays silent on reconnecting.
  */
 async function profileRefusalHint(client: CommsApi, error: unknown): Promise<string | undefined> {
     if (httpStatusOf(error) !== 401) {
@@ -226,7 +227,7 @@ async function profileRefusalHint(client: CommsApi, error: unknown): Promise<str
     }
     return client.users.getSessionUser().then(
         () => TODOIST_REFUSED_HINT,
-        () => undefined,
+        (readError: unknown) => (httpStatusOf(readError) === 401 ? undefined : ''),
     )
 }
 
