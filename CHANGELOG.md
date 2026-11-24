@@ -1,3 +1,9 @@
+## [11.2.1](https://github.com/todoist/comms-mcp/compare/v11.2.0...v11.2.1) (2026-11-24)
+
+### Bug Fixes
+
+* **update-user-info:** skip reconnect advice when Todoist refuses ([#95](https://github.com/todoist/comms-mcp/issues/95)) ([be2e9bd](https://github.com/todoist/comms-mcp/commit/be2e9bd89ac2021dfa92ee5c66adf516f5243318))
+
 ## [11.2.0](https://github.com/todoist/comms-mcp/compare/v11.1.0...v11.2.0) (2026-11-23)
 
 ### Features
