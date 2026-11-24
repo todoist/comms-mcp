@@ -17,7 +17,13 @@ import { buildUserInfoResult } from './user-output.js'
 const MAX_MESSAGE_LENGTH = 80
 
 const StatusArgsSchema = z.object({
-    message: z.string().trim().min(1).max(MAX_MESSAGE_LENGTH),
+    message: z
+        .string()
+        .trim()
+        .min(1)
+        .max(MAX_MESSAGE_LENGTH)
+        .optional()
+        .describe('Omit for a status that is only an emoji.'),
     emoji: z.string().trim().min(1).optional().describe('A Unicode emoji, such as 🏝️.'),
     activeUntil: z
         .string()
@@ -42,7 +48,7 @@ const ArgsSchema = {
     status: StatusArgsSchema.nullable()
         .optional()
         .describe(
-            'Replaces the whole status: an omitted emoji, end or pause is removed. null removes the status.',
+            'Replaces the whole status: an omitted message, emoji, end or pause is removed. Needs a message, an emoji or both. null removes the status.',
         ),
 }
 
@@ -120,13 +126,19 @@ function buildStatus(status: StatusArgs, now: Date): SetStatusArgs {
     // The schema checks these, but a caller that skips it can send anything. A message or emoji
     // Comms accepts but the comparison below cannot read would fail only after the write applied,
     // and a pause flag of "false" would read as true.
-    if (typeof message !== 'string' || !message.trim()) {
-        throw new Error(
-            'status.message is required to set a status. Pass status: null to remove it.',
-        )
+    if (message != null && typeof message !== 'string') {
+        throw new Error('status.message must be text, such as "Deep work".')
     }
     if (emoji != null && typeof emoji !== 'string') {
         throw new Error('status.emoji must be text, such as "🏝️".')
+    }
+    // Trimmed as the schema would, so a caller that skips it sends the same values.
+    const text = message?.trim() || null
+    const symbol = emoji?.trim() || null
+    if (!text && !symbol) {
+        throw new Error(
+            'status.message or status.emoji is required to set a status. Pass status: null to remove it.',
+        )
     }
     if (activeUntil != null && typeof activeUntil !== 'string') {
         throw invalidActiveUntil(String(activeUntil))
@@ -138,9 +150,8 @@ function buildStatus(status: StatusArgs, now: Date): SetStatusArgs {
     }
 
     return {
-        // Trimmed as the schema would, so a caller that skips it sends the same values.
-        message: message.trim(),
-        emoji: emoji?.trim() || null,
+        message: text,
+        emoji: symbol,
         activeUntil: activeUntil != null ? parseActiveUntil(activeUntil, now) : null,
         effects: {
             pauseNotifications: pauseNotifications ? ALL_SCOPE : null,
@@ -238,7 +249,7 @@ function normaliseEmoji(emoji: string | null | undefined): string | null {
     return emoji?.replace(/\uFE0F/g, '').trim() || null
 }
 
-function normaliseMessage(message: string | undefined): string | undefined {
+function normaliseMessage(message: string | null | undefined): string | undefined {
     return message?.normalize('NFC').replace(/\s+/g, ' ').trim()
 }
 

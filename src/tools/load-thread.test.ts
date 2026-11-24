@@ -228,6 +228,29 @@ describe(`${LOAD_THREAD} tool`, () => {
         })
     })
 
+    describe('thread state', () => {
+        it.each([
+            { closed: true, isClosed: true, line: '**Closed:** Yes' },
+            { closed: false, isClosed: false, line: '**Closed:** No' },
+            { closed: null, isClosed: false, line: '**Closed:** No' },
+        ])('reports closed: $closed as isClosed: $isClosed', async ({ closed, isClosed, line }) => {
+            mockCommsApi.threads.getThread.mockResolvedValue(createMockThread({ closed }))
+            mockCommsApi.comments.getComments.mockResolvedValue([])
+            mockCommsApi.channels.getChannel.mockResolvedValue(makeChannel())
+            mockCommsApi.workspaceUsers.getUsersByIds.mockImplementation(
+                usersByIds([makeUser(TEST_IDS.USER_1, 'Test User 1')]),
+            )
+
+            const result = await loadThread.execute(
+                { threadId: TEST_IDS.THREAD_1, limit: 50, includeParticipants: true },
+                mockCommsApi,
+            )
+
+            expect(result.structuredContent?.thread.isClosed).toBe(isClosed)
+            expect(extractTextContent(result)).toContain(line)
+        })
+    })
+
     describe('attachments', () => {
         const sampleAttachment = {
             attachmentId: 'abc-123',

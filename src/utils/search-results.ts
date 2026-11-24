@@ -8,7 +8,13 @@ export type RawSearchResult = {
     creatorId: number
     created: string
 } & (
-    | { type: 'thread'; threadId: string; commentId?: string; channelId?: string }
+    | {
+          type: 'thread'
+          threadId: string
+          commentId?: string
+          channelId?: string
+          isClosed?: boolean
+      }
     | { type: 'conversation'; conversationId: string; messageId: string }
 )
 
@@ -36,6 +42,7 @@ export function toRawSearchResults(items: SearchResult[], toolName: string): Raw
                     threadId: r.threadId,
                     commentId: r.commentId ?? undefined,
                     channelId: r.channelId ?? undefined,
+                    isClosed: r.closed ?? undefined,
                 },
             ]
         }

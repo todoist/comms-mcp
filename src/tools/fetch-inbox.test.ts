@@ -549,7 +549,6 @@ describe(`${FETCH_INBOX} tool`, () => {
                     snippet: `${title} snippet`,
                     snippetCreator: creator,
                     isArchived,
-                    closed: isArchived,
                     commentCount: 1,
                     url: `https://comms.todoist.com/${TEST_IDS.WORKSPACE_1}/ch/${TEST_IDS.CHANNEL_1}/t/${id}/`,
                 })
@@ -673,6 +672,34 @@ describe(`${FETCH_INBOX} tool`, () => {
                     ]),
                 )
             })
+        })
+    })
+
+    describe('thread state', () => {
+        it('should flag closed threads', async () => {
+            mockCommsApi.inbox.getInbox.mockResolvedValue([
+                makeInboxThread({ id: TEST_IDS.THREAD_1, title: 'Open Thread' }),
+                makeInboxThread({ id: TEST_IDS.THREAD_2, title: 'Closed Thread', closed: true }),
+            ])
+            mockCommsApi.inbox.getCount.mockResolvedValue(0)
+            mockCommsApi.threads.getUnread.mockResolvedValue({ data: [], version: 1 })
+            mockCommsApi.conversations.getUnread.mockResolvedValue({ data: [], version: 1 })
+            mockCommsApi.channels.getChannel.mockResolvedValue(makeChannel())
+
+            const result = await fetchInbox.execute(
+                { workspaceId: TEST_IDS.WORKSPACE_1, limit: 50, onlyUnread: false },
+                mockCommsApi,
+            )
+
+            const textContent = extractTextContent(result)
+            expect(textContent).toContain(
+                `- [Test Channel] Closed Thread [closed] (ID: ${TEST_IDS.THREAD_2})`,
+            )
+            expect(textContent).toContain(`- [Test Channel] Open Thread (ID: ${TEST_IDS.THREAD_1})`)
+            expect(result.structuredContent?.threads).toEqual([
+                expect.objectContaining({ id: TEST_IDS.THREAD_1, isClosed: false }),
+                expect.objectContaining({ id: TEST_IDS.THREAD_2, isClosed: true }),
+            ])
         })
     })
 

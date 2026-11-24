@@ -47,6 +47,7 @@ type LoadThreadStructured = {
         commentCount: number
         isArchived: boolean
         inInbox: boolean
+        isClosed: boolean
         participants?: number[]
         participantNames?: string[]
         threadUrl: string
@@ -129,6 +130,7 @@ const loadThread = {
             `**Comments:** ${thread.commentCount}`,
             `**Archived:** ${thread.isArchived ? 'Yes' : 'No'}`,
             `**In Inbox:** ${thread.inInbox ? 'Yes' : 'No'}`,
+            `**Closed:** ${thread.closed ? 'Yes' : 'No'}`,
             '',
             '## Content',
             '',
@@ -194,6 +196,7 @@ const loadThread = {
                 commentCount: thread.commentCount,
                 isArchived: thread.isArchived,
                 inInbox: thread.inInbox ?? false,
+                isClosed: thread.closed ?? false,
                 participants: includeParticipants ? (thread.participants ?? undefined) : undefined,
                 participantNames:
                     includeParticipants && thread.participants

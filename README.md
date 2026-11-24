@@ -155,7 +155,7 @@ small number of calls.
 - **create-channel** / **update-channel** — Create or update workspace channels through MCP
 - **createThread** — Start a new channel thread. Accepts an optional `displayInInbox` boolean (default `false`). When `true`, the thread is unarchived after creation so it appears in the author's Inbox. See also [COMMS_CREATE_THREAD_DISPLAY_IN_INBOX](#environment-variables).
 - **updateObject** / **deleteObject** — Edit or remove a thread, comment, or message
-- **reply** — Reply to a thread or conversation
+- **reply** — Reply to a thread or conversation. On a thread, an optional `threadAction` (`close` or `reopen`) closes the thread for everyone with the reply, or reopens it. This differs from **markDone**, which only archives the thread in your own inbox
 - **react** — Add a reaction to a thread, comment, conversation, or message
 - **markDone** — Mark threads or conversations as read and/or archived
 - **markRead** — Mark threads and/or conversations as read without archiving them (specific IDs, or everything unread in a workspace)

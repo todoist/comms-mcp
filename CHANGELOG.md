@@ -1,3 +1,21 @@
+## [11.2.0](https://github.com/todoist/comms-mcp/compare/v11.1.0...v11.2.0) (2026-11-23)
+
+### Features
+
+* close or reopen a thread from reply ([#98](https://github.com/todoist/comms-mcp/issues/98)) ([9147c88](https://github.com/todoist/comms-mcp/commit/9147c88346944a9890dc81da3eff28df24c83fd3))
+
+## [11.1.0](https://github.com/todoist/comms-mcp/compare/v11.0.5...v11.1.0) (2026-11-17)
+
+### Features
+
+* set a user status that has only an emoji ([#97](https://github.com/todoist/comms-mcp/issues/97)) ([4c0fbfd](https://github.com/todoist/comms-mcp/commit/4c0fbfd8a8ddc753cc6954ccd2ff96e839a69fd3))
+
+## [11.0.5](https://github.com/todoist/comms-mcp/compare/v11.0.4...v11.0.5) (2026-11-17)
+
+### Bug Fixes
+
+* handle a user status that has only an emoji ([#96](https://github.com/todoist/comms-mcp/issues/96)) ([8179f43](https://github.com/todoist/comms-mcp/commit/8179f434e906768e2ef634dbecf780e7fe1c6b56))
+
 ## [11.0.4](https://github.com/todoist/comms-mcp/compare/v11.0.3...v11.0.4) (2026-11-13)
 
 ### Bug Fixes

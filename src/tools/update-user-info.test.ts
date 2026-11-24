@@ -33,7 +33,7 @@ type StatusInput = Parameters<typeof updateUserInfo.execute>[0]['status']
 function echoSentStatus() {
     mockCommsApi.users.setStatus.mockImplementation(async (args) => {
         const status: UserStatus = {
-            message: args.message ?? '',
+            message: args.message ?? null,
             ...(args.emoji ? { emoji: args.emoji } : {}),
             ...(args.activeUntil ? { activeUntil: String(args.activeUntil) } : {}),
             ...(args.effects
@@ -401,6 +401,25 @@ describe(`${UPDATE_USER_INFO} tool`, () => {
         })
     })
 
+    it('sets an emoji-only status, sending a null message', async () => {
+        const result = await setStatus({ emoji: '🤒', pauseActivity: true })
+
+        expect(sentStatus()).toEqual({
+            message: null,
+            emoji: '🤒',
+            activeUntil: null,
+            effects: { pauseNotifications: null, pauseActivity: ALL_SCOPE },
+        })
+        expect(extractTextContent(result)).toMatch(
+            /^Updated: status\n\n[\s\S]*\*\*Status:\*\* 🤒\n\*\*Status Until:\*\* no end\n\*\*Status Effects:\*\* Karma and streaks paused$/,
+        )
+        expect(statusOf(result)).toStrictEqual({
+            emoji: '🤒',
+            pauseNotifications: false,
+            pauseActivity: true,
+        })
+    })
+
     it('sends the emoji, the end in UTC and both pauses with an explicit scope', async () => {
         const result = await setStatus({
             message: 'On holiday',
@@ -509,18 +528,43 @@ describe(`${UPDATE_USER_INFO} tool`, () => {
     })
 
     it.each([
-        ['missing', { emoji: '🎯' }],
-        ['empty', { message: '' }],
-        ['a number', { message: 42 }],
+        ['neither is given', {}],
+        [
+            'only an end and a pause are given',
+            { activeUntil: '2026-11-10T09:00:00Z', pauseActivity: true },
+        ],
+        ['the message is empty', { message: '' }],
+        ['both are blank', { message: '  ', emoji: '  ' }],
     ])(
-        'requires a message for a caller that skips the schema, when it is %s',
+        'requires a message or an emoji for a caller that skips the schema, when %s',
         async (_label, status) => {
             await expect(setStatus(status as StatusInput)).rejects.toThrow(
-                'status.message is required to set a status. Pass status: null to remove it.',
+                exactly(
+                    'status.message or status.emoji is required to set a status. Pass status: null to remove it.',
+                ),
             )
             expect(mockCommsApi.users.setStatus).not.toHaveBeenCalled()
         },
     )
+
+    it('reads a blank message as none for a caller that skips the schema', async () => {
+        await setStatus({ message: '  ', emoji: '🤒' })
+
+        expect(sentStatus()).toEqual(expect.objectContaining({ message: null, emoji: '🤒' }))
+    })
+
+    it('refuses a message that is not text before writing anything', async () => {
+        await expect(
+            updateUserInfo.execute(
+                { name: 'Ada', status: { message: 42, emoji: '🤒' } } as unknown as Parameters<
+                    typeof updateUserInfo.execute
+                >[0],
+                mockCommsApi,
+            ),
+        ).rejects.toThrow(exactly('status.message must be text, such as "Deep work".'))
+        expect(mockCommsApi.users.update).not.toHaveBeenCalled()
+        expect(mockCommsApi.users.setStatus).not.toHaveBeenCalled()
+    })
 
     it('refuses an emoji that is not text before writing anything', async () => {
         await expect(
@@ -887,8 +931,15 @@ describe(`${UPDATE_USER_INFO} tool`, () => {
             expect(schema.safeParse({ status: { message } }).success).toBe(valid)
         })
 
-        it('requires a message in a status', () => {
-            expect(schema.safeParse({ status: { emoji: '🎯' } }).success).toBe(false)
+        it('accepts a status with only an emoji', () => {
+            expect(schema.parse({ status: { emoji: ' 🎯 ' } })).toEqual({
+                status: { emoji: '🎯' },
+            })
+        })
+
+        it('describes an emoji-only status to the model', () => {
+            const description = schema.shape.status.description ?? ''
+            expect(description).toContain('a message, an emoji or both')
         })
 
         it('rejects an emoji of only spaces', () => {

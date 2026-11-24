@@ -1,6 +1,6 @@
 {
     "name": "@todoist/comms-mcp",
-    "version": "11.0.4",
+    "version": "11.2.0",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
@@ -56,7 +56,7 @@
         "review:worktree": "node .agents/scripts/review-worktree.ts"
     },
     "dependencies": {
-        "@todoist/comms-sdk": "5.0.2",
+        "@todoist/comms-sdk": "5.2.2",
         "@todoist/mcp-core": "1.0.0",
         "dotenv": "17.4.2",
         "p-limit": "6.2.0",
