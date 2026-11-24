@@ -206,15 +206,39 @@ const SCOPE_HINTS: Record<number, string> = {
  * failure claims the change did not apply: the SDK retries a POST after a network error, so an
  * earlier attempt may have.
  */
-function explainWriteFailure(error: unknown, subject: 'profile' | 'status'): Error {
+function explainWriteFailure(error: unknown, subject: 'profile' | 'status', hint?: string): Error {
     const checkIt = `Use ${ToolNames.USER_INFO} to check it.`
-    const status = error instanceof CommsRequestError ? error.httpStatusCode : undefined
+    const status = httpStatusOf(error)
     if (status === undefined || status >= 500) {
         return new Error(`The ${subject} change is unconfirmed: ${errorDetail(error)}. ${checkIt}`)
     }
-    const reason = getCommsErrorString(error)
+    // Comms sometimes ends its reason with a full stop, and the sentence below adds its own.
+    const reason = getCommsErrorString(error)?.replace(/\.+$/, '')
     return new Error(
-        `Comms refused to change the ${subject} (HTTP ${status})${reason ? `: ${reason}` : ''}.${SCOPE_HINTS[status] ?? ''} ${checkIt}`,
+        `Comms refused to change the ${subject} (HTTP ${status})${reason ? `: ${reason}` : ''}.${hint ?? SCOPE_HINTS[status] ?? ''} ${checkIt}`,
+    )
+}
+
+function httpStatusOf(error: unknown): number | undefined {
+    return error instanceof CommsRequestError ? error.httpStatusCode : undefined
+}
+
+const TODOIST_REFUSED_HINT =
+    ' The connection still reads the profile, so the token is valid and reconnecting will not fix this.'
+
+/**
+ * Comms hands a name, timezone or language change to Todoist with the caller's token, and Todoist
+ * refuses some tokens Comms accepts, so a 401 alone does not say the token is bad. A read with the
+ * same token tells the two apart. Only a 401 on that read says the token is dead; any other
+ * failure says nothing about it, so the message stays silent on reconnecting.
+ */
+async function profileRefusalHint(client: CommsApi, error: unknown): Promise<string | undefined> {
+    if (httpStatusOf(error) !== 401) {
+        return undefined
+    }
+    return client.users.getSessionUser().then(
+        () => TODOIST_REFUSED_HINT,
+        (readError: unknown) => (httpStatusOf(readError) === 401 ? undefined : ''),
     )
 }
 
@@ -258,8 +282,9 @@ async function writeProfile(
 ): Promise<{ user: User; differences: string[] }> {
     // The status is only sent once Comms has accepted the profile change.
     const notSent = statusPending ? ' The status change was not sent.' : ''
-    const user = await client.users.update(profile).catch((error: unknown) => {
-        throw new Error(`${explainWriteFailure(error, 'profile').message}${notSent}`)
+    const user = await client.users.update(profile).catch(async (error: unknown) => {
+        const hint = await profileRefusalHint(client, error)
+        throw new Error(`${explainWriteFailure(error, 'profile', hint).message}${notSent}`)
     })
     return { user, differences: profileDifferences(user, profile) }
 }
