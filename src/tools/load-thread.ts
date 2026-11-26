@@ -30,6 +30,10 @@ const ArgsSchema = {
         .optional()
         .default(true)
         .describe('Include participant user IDs in the response.'),
+    pinnedOnly: z
+        .boolean()
+        .optional()
+        .describe('Return only the pinned comments. Date filters and limit are ignored.'),
 }
 
 type LoadThreadStructured = {
@@ -74,17 +78,20 @@ const loadThread = {
     outputSchema: LoadThreadOutputSchema.shape,
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
     async execute(args, client) {
-        const { threadId, newerThanDate, olderThanDate, limit, includeParticipants } = args
+        const { threadId, newerThanDate, olderThanDate, limit, includeParticipants, pinnedOnly } =
+            args
 
         // Fetch thread metadata and comments in parallel
         const [thread, comments] = await Promise.all([
             client.threads.getThread(threadId),
-            client.comments.getComments({
-                threadId,
-                newerThan: newerThanDate ? new Date(newerThanDate) : undefined,
-                olderThan: olderThanDate ? new Date(olderThanDate) : undefined,
-                limit,
-            }),
+            pinnedOnly
+                ? client.comments.getPinnedComments(threadId)
+                : client.comments.getComments({
+                      threadId,
+                      newerThan: newerThanDate ? new Date(newerThanDate) : undefined,
+                      olderThan: olderThanDate ? new Date(olderThanDate) : undefined,
+                      limit,
+                  }),
         ])
 
         // Collect all unique user IDs
@@ -150,7 +157,7 @@ const loadThread = {
             lines.push('')
         }
 
-        lines.push(`## Comments (${comments.length})`)
+        lines.push(`## ${pinnedOnly ? 'Pinned comments' : 'Comments'} (${comments.length})`)
         lines.push('')
 
         for (const comment of comments) {

@@ -18,6 +18,7 @@ const mockCommsApi = vi.mocked(
         },
         conversationMessages: {
             getMessages: vi.fn(),
+            getPinnedMessages: vi.fn(),
         },
         workspaceUsers: {
             getUsersByIds: vi.fn(),
@@ -45,6 +46,30 @@ describe(`${LOAD_CONVERSATION} tool`, () => {
     })
 
     describe('loading conversations successfully', () => {
+        it('should load only the pinned messages with pinnedOnly', async () => {
+            mockCommsApi.conversations.getConversation.mockResolvedValue(createMockConversation())
+            mockCommsApi.conversationMessages.getPinnedMessages.mockResolvedValue([
+                createMockConversationMessage({ id: TEST_IDS.MESSAGE_2 }),
+            ])
+            mockCommsApi.workspaceUsers.getUsersByIds.mockImplementation(usersByIds([]))
+
+            const result = await loadConversation.execute(
+                {
+                    conversationId: TEST_IDS.CONVERSATION_1,
+                    limit: 50,
+                    includeParticipants: false,
+                    pinnedOnly: true,
+                },
+                mockCommsApi,
+            )
+
+            expect(mockCommsApi.conversationMessages.getPinnedMessages).toHaveBeenCalledWith(
+                TEST_IDS.CONVERSATION_1,
+            )
+            expect(mockCommsApi.conversationMessages.getMessages).not.toHaveBeenCalled()
+            expect(extractTextContent(result)).toContain('## Pinned messages (1)')
+        })
+
         it('should load conversation with messages and participants', async () => {
             const mockConversation = createMockConversation({
                 userIds: [TEST_IDS.USER_1, TEST_IDS.USER_2],

@@ -30,6 +30,10 @@ const ArgsSchema = {
         .optional()
         .default(true)
         .describe('Include participant user IDs in the response.'),
+    pinnedOnly: z
+        .boolean()
+        .optional()
+        .describe('Return only the pinned messages. Date filters and limit are ignored.'),
 }
 
 type LoadConversationStructured = {
@@ -64,17 +68,26 @@ const loadConversation = {
     outputSchema: LoadConversationOutputSchema.shape,
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
     async execute(args, client) {
-        const { conversationId, newerThanDate, olderThanDate, limit, includeParticipants } = args
+        const {
+            conversationId,
+            newerThanDate,
+            olderThanDate,
+            limit,
+            includeParticipants,
+            pinnedOnly,
+        } = args
 
         // Fetch conversation metadata and messages in parallel
         const [conversation, messages] = await Promise.all([
             client.conversations.getConversation(conversationId),
-            client.conversationMessages.getMessages({
-                conversationId,
-                newerThan: newerThanDate ? new Date(newerThanDate) : undefined,
-                olderThan: olderThanDate ? new Date(olderThanDate) : undefined,
-                limit,
-            }),
+            pinnedOnly
+                ? client.conversationMessages.getPinnedMessages(conversationId)
+                : client.conversationMessages.getMessages({
+                      conversationId,
+                      newerThan: newerThanDate ? new Date(newerThanDate) : undefined,
+                      olderThan: olderThanDate ? new Date(olderThanDate) : undefined,
+                      limit,
+                  }),
         ])
 
         const { userIds } = conversation
@@ -111,7 +124,7 @@ const loadConversation = {
             lines.push('')
         }
 
-        lines.push(`## Messages (${messages.length})`)
+        lines.push(`## ${pinnedOnly ? 'Pinned messages' : 'Messages'} (${messages.length})`)
         lines.push('')
 
         // Normalised once per message, for both the text and the structured content.
