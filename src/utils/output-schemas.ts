@@ -598,13 +598,15 @@ export const ReactOutputSchema = z.object({
     targetUrl: z.string(),
 })
 
+export const PIN_OPS = ['pin', 'unpin'] as const
+
 /**
  * Schema for pin tool output
  */
 export const PinOutputSchema = z.object({
     type: z.literal('pin_result'),
     success: z.boolean(),
-    operation: z.enum(['pin', 'unpin']),
+    operation: z.enum(PIN_OPS),
     targetType: z.enum(['comment', 'message']),
     targetId: z.string(),
     pinnedDate: z.string().optional(),

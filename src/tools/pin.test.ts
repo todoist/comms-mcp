@@ -49,6 +49,17 @@ describe(`${ToolNames.PIN} tool`, () => {
         },
     )
 
+    it('pins when operation is left out, as when run through npm run tool', async () => {
+        const args = { targetType: 'comment', targetId: TEST_IDS.COMMENT_1 } as Parameters<
+            typeof pin.execute
+        >[0]
+
+        await pin.execute(args, mockCommsApi)
+
+        expect(mockCommsApi.comments.pinComment).toHaveBeenCalledWith(TEST_IDS.COMMENT_1)
+        expect(mockCommsApi.comments.unpinComment).not.toHaveBeenCalled()
+    })
+
     it('reports who pinned it and when', async () => {
         const result = await pin.execute(
             { targetType: 'comment', targetId: TEST_IDS.COMMENT_1, operation: 'pin' },

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { CommsTool } from '../comms-tool.js'
-import { PinOutputSchema } from '../utils/output-schemas.js'
+import { PIN_OPS, PinOutputSchema } from '../utils/output-schemas.js'
 import { PinTargetTypeSchema } from '../utils/target-types.js'
 import { ToolNames } from '../utils/tool-names.js'
 
@@ -9,7 +9,7 @@ const ArgsSchema = {
         'What to pin: a thread comment, or a conversation message.',
     ),
     targetId: z.string().describe('The ID of the comment or message.'),
-    operation: z.enum(['pin', 'unpin']).default('pin').describe('Whether to pin or unpin it.'),
+    operation: z.enum(PIN_OPS).default('pin').describe('Whether to pin or unpin it.'),
 }
 
 const pin = {
@@ -18,18 +18,22 @@ const pin = {
         'Pin a thread comment or a conversation message, so it shows at the top for everyone in the thread or conversation, or unpin it.',
     parameters: ArgsSchema,
     outputSchema: PinOutputSchema.shape,
-    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
     async execute(args, client) {
-        const { targetType, targetId, operation } = args
+        // `npm run tool` passes args without schema parsing, so the default isn't applied there.
+        const { targetType, targetId, operation = 'pin' } = args
 
-        const target =
-            targetType === 'comment'
-                ? operation === 'pin'
-                    ? await client.comments.pinComment(targetId)
-                    : await client.comments.unpinComment(targetId)
-                : operation === 'pin'
-                  ? await client.conversationMessages.pinMessage(targetId)
-                  : await client.conversationMessages.unpinMessage(targetId)
+        const calls = {
+            comment: {
+                pin: () => client.comments.pinComment(targetId),
+                unpin: () => client.comments.unpinComment(targetId),
+            },
+            message: {
+                pin: () => client.conversationMessages.pinMessage(targetId),
+                unpin: () => client.conversationMessages.unpinMessage(targetId),
+            },
+        }
+        const target = await calls[targetType][operation]()
 
         const pinnedDate = target.pinnedDate?.toISOString()
         const lines: string[] = [

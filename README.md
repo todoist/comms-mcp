@@ -157,6 +157,7 @@ small number of calls.
 - **updateObject** / **deleteObject** — Edit or remove a thread, comment, or message
 - **reply** — Reply to a thread or conversation. On a thread, an optional `threadAction` (`close` or `reopen`) closes the thread for everyone with the reply, or reopens it. This differs from **markDone**, which only archives the thread in your own inbox
 - **react** — Add a reaction to a thread, comment, conversation, or message
+- **pin** — Pin or unpin a thread comment or a conversation message
 - **markDone** — Mark threads or conversations as read and/or archived
 - **markRead** — Mark threads and/or conversations as read without archiving them (specific IDs, or everything unread in a workspace)
 - **buildLink** — Build URLs to Comms resources
