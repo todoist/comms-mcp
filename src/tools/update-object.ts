@@ -34,7 +34,7 @@ const ArgsSchema = {
         .boolean()
         .optional()
         .describe(
-            'Skip the "changed the title" comment, so the thread is not marked unread or moved up. For automated renames, like adding "[resolved]".',
+            'Skip the "changed the title" comment, so the thread is not marked unread or moved up. For automated renames, like adding "[resolved]". Only valid with title on a thread.',
         ),
 }
 
