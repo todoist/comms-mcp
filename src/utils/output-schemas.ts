@@ -599,6 +599,20 @@ export const ReactOutputSchema = z.object({
 })
 
 /**
+ * Schema for pin tool output
+ */
+export const PinOutputSchema = z.object({
+    type: z.literal('pin_result'),
+    success: z.boolean(),
+    operation: z.enum(['pin', 'unpin']),
+    targetType: z.enum(['comment', 'message']),
+    targetId: z.string(),
+    pinnedDate: z.string().optional(),
+    pinnedBy: z.number().optional(),
+    targetUrl: z.string(),
+})
+
+/**
  * Schema for mark-done tool output
  */
 // Per-item operations mark-done can run. Shared so the operation name can't

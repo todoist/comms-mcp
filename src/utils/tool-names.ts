@@ -14,6 +14,7 @@ export const ToolNames = {
     DELETE_OBJECT: 'delete-object',
     REPLY: 'reply',
     REACT: 'react',
+    PIN: 'pin',
     MARK_DONE: 'mark-done',
     MARK_READ: 'mark-read',
     BUILD_LINK: 'build-link',

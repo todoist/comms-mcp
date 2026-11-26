@@ -121,6 +121,12 @@ describeToolAnnotations({
             destructiveHint: true,
             idempotentHint: false,
         },
+        [ToolNames.PIN]: {
+            title: 'Comms: Pin',
+            readOnlyHint: false,
+            destructiveHint: false,
+            idempotentHint: true,
+        },
         [ToolNames.MARK_DONE]: {
             title: 'Comms: Mark Done',
             readOnlyHint: false,

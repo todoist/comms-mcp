@@ -15,6 +15,7 @@ import { loadConversation } from './tools/load-conversation.js'
 import { loadThread } from './tools/load-thread.js'
 import { markDone } from './tools/mark-done.js'
 import { markRead } from './tools/mark-read.js'
+import { pin } from './tools/pin.js'
 import { react } from './tools/react.js'
 import { reply } from './tools/reply.js'
 import { searchContent } from './tools/search-content.js'
@@ -44,6 +45,7 @@ export const registeredTools: readonly AnyCommsTool[] = [
     deleteObject,
     reply,
     react,
+    pin,
     markDone,
     markRead,
     listChannels,
