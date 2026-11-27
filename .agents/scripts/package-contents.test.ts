@@ -6,7 +6,7 @@ import { isolatedEnv, REPO_ROOT } from './lib/test-repo.ts'
 
 // Agent tooling is development-only and must never be published, whatever `files` in
 // package.json lists next.
-const DEV_ONLY = ['.agents/', '.claude/', '.codex/', '.cursor/', '.tmp/']
+const DEV_ONLY = ['.agents/', '.claude/', '.codex/', '.cursor/', '.pi/', '.tmp/']
 
 it('keeps agent tooling out of the published package', () => {
     expect(existsSync(join(REPO_ROOT, '.agents/scripts'))).toBe(true)
