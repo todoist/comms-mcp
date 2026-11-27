@@ -22,6 +22,11 @@ const DRIVER = `
         if (process.env.BROKEN_UI) throw new Error('the UI is gone')
         notes.push(message)
     }
+    // Timers the extension sets run out after a tenth of a second, so a test can reach its timeout.
+    if (process.env.SHORT_TIMERS) {
+        const setTimer = globalThis.setTimeout
+        globalThis.setTimeout = (callback, _ms, ...args) => setTimer(callback, 100, ...args)
+    }
     const ctx = {
         get cwd() {
             if (process.env.BROKEN_CONTEXT) throw new Error('the context is gone')
@@ -244,6 +249,16 @@ it('allows the call when the guard exits without reading its input or printing J
     const garbled = drive(bash('git push'))
     expect(garbled.result).toBeNull()
     expect(garbled.notes.join('\n')).toContain('printed no JSON, so it allowed the action')
+})
+
+it('allows the call with a note when the guard never finishes', () => {
+    commitOnBranch('feature', 'src/b.ts')
+    // As when a push the guard runs waits for a credential prompt nobody answers. It gives up after
+    // ten seconds, so a timeout that never fires fails this test rather than hanging it.
+    repo.write('.agents/scripts/guard.ts', 'setTimeout(() => {}, 10_000)\n')
+    const hung = drive(bash('git push'), { env: { SHORT_TIMERS: '1' } })
+    expect(hung.result).toBeNull()
+    expect(hung.notes.join('\n')).toContain('tool-start timed out, so it allowed the action')
 })
 
 it('is type-checked with the rest of the agent tooling', () => {
