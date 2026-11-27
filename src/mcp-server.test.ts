@@ -132,7 +132,9 @@ describe('confirming a post to everyone in a channel over MCP', () => {
                 userIds: Array.from({ length: 11 }, (_, index) => index + 1),
             }),
         )
-        const createThread = vi.spyOn(ThreadsClient.prototype, 'createThread')
+        const createThread = vi
+            .spyOn(ThreadsClient.prototype, 'createThread')
+            .mockResolvedValue(createMockThread())
         const questions: string[] = []
 
         const server = getMcpServer({ token: 'test-token' })

@@ -686,9 +686,11 @@ describe(`${REPLY} tool`, () => {
 
         it('should reply once the user confirms', async () => {
             mockCommsApi.comments.createComment.mockResolvedValue(createMockComment())
+            const request = createMockToolRequest('confirmed')
 
-            await reply.execute(everyone, mockCommsApi, createMockToolRequest('confirmed'))
+            await reply.execute(everyone, mockCommsApi, request)
 
+            expect(request.checked).toEqual(['notify-everyone'])
             expect(mockCommsApi.comments.createComment).toHaveBeenCalledWith(
                 expect.objectContaining({ notifyAudience: 'channel' }),
             )
@@ -706,6 +708,25 @@ describe(`${REPLY} tool`, () => {
 
             expect(request.questions).toEqual([])
             expect(mockCommsApi.channels.getChannel).not.toHaveBeenCalled()
+        })
+
+        // Asking about a reply the thread would refuse only for the post to fail afterwards
+        // would waste the user's answer.
+        it('should refuse a reply to a closed thread before asking anything', async () => {
+            mockCommsApi.threads.getThread.mockResolvedValue(
+                createMockThread({
+                    title: 'Q3 kickoff',
+                    channelId: TEST_IDS.CHANNEL_1,
+                    closed: true,
+                }),
+            )
+            const request = createMockToolRequest('asking')
+
+            await expect(reply.execute(everyone, mockCommsApi, request)).rejects.toThrow(
+                `Thread ${TEST_IDS.THREAD_1} is closed, so it does not accept new comments`,
+            )
+            expect(request.checked).toEqual([])
+            expect(mockCommsApi.comments.createComment).not.toHaveBeenCalled()
         })
     })
 })

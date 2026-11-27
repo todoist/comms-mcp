@@ -1,4 +1,4 @@
-import type { CommsApi } from '@todoist/comms-sdk'
+import type { Channel, CommsApi } from '@todoist/comms-sdk'
 import { vi } from 'vitest'
 import {
     createMockChannel,
@@ -432,11 +432,12 @@ describe(`${CREATE_THREAD} tool`, () => {
     // The web app asks before "Everyone in channel" notifies 10 people or more, and so does this.
     describe('asking before notifying everyone in the channel', () => {
         /** A channel of `members` people, one of whom is the poster. */
-        function channelOf(members: number) {
+        function channelOf(members: number, defaults: Partial<Channel> = {}) {
             mockCommsApi.channels.getChannel.mockResolvedValue(
                 createMockChannel({
                     name: 'Design',
                     userIds: Array.from({ length: members }, (_, index) => index + 1),
+                    ...defaults,
                 }),
             )
         }
@@ -478,7 +479,41 @@ describe(`${CREATE_THREAD} tool`, () => {
             expect(mockCommsApi.threads.createThread).toHaveBeenCalledTimes(1)
         })
 
-        it('should not look the channel up when not notifying everyone', async () => {
+        it('should not look the channel up when the post names its own recipients', async () => {
+            mockCommsApi.threads.createThread.mockResolvedValue(createMockThread())
+            const request = createMockToolRequest('asking')
+
+            await createThread.execute(
+                {
+                    channelId: TEST_IDS.CHANNEL_1,
+                    title: 'Q3 kickoff',
+                    content: 'Agenda inside',
+                    recipients: [TEST_IDS.USER_2],
+                },
+                mockCommsApi,
+                request,
+            )
+
+            expect(mockCommsApi.channels.getChannel).not.toHaveBeenCalled()
+            expect(request.checked).toEqual([])
+            expect(mockCommsApi.threads.createThread).toHaveBeenCalledTimes(1)
+        })
+
+        // A thread that names no audience gets the channel's defaults, which can be everyone.
+        it.each([
+            { defaults: {}, asks: true, why: 'the channel uses no default recipients' },
+            {
+                defaults: { useDefaultRecipients: true, defaultGroups: ['EVERYONE'] },
+                asks: true,
+                why: 'the defaults include everyone',
+            },
+            {
+                defaults: { useDefaultRecipients: true, defaultGroups: ['group-1'] },
+                asks: false,
+                why: 'the defaults pick a group',
+            },
+        ])('should ask $asks for a post with no audience when $why', async ({ defaults, asks }) => {
+            channelOf(11, defaults)
             mockCommsApi.threads.createThread.mockResolvedValue(createMockThread())
             const request = createMockToolRequest('asking')
 
@@ -488,17 +523,48 @@ describe(`${CREATE_THREAD} tool`, () => {
                 request,
             )
 
-            expect(mockCommsApi.channels.getChannel).not.toHaveBeenCalled()
-            expect(request.questions).toEqual([])
-            expect(mockCommsApi.threads.createThread).toHaveBeenCalledTimes(1)
+            expect(request.questions).toEqual(
+                asks
+                    ? [
+                          {
+                              key: 'notify-everyone',
+                              message:
+                                  'Notify 10 people? This posts the thread "Q3 kickoff" and notifies everyone in the channel "Design".',
+                          },
+                      ]
+                    : [],
+            )
+            expect(mockCommsApi.threads.createThread).toHaveBeenCalledTimes(asks ? 0 : 1)
+        })
+
+        // Not knowing who would be notified is no reason to skip the question.
+        it('should ask without a count when the channel lists no members', async () => {
+            mockCommsApi.channels.getChannel.mockResolvedValue(
+                createMockChannel({ name: 'Design', userIds: null }),
+            )
+            const request = createMockToolRequest('asking')
+
+            await createThread.execute(everyone, mockCommsApi, request)
+
+            expect(request.questions).toEqual([
+                {
+                    key: 'notify-everyone',
+                    message:
+                        'Notify everyone in the channel? This posts the thread "Q3 kickoff" and notifies everyone in the channel "Design".',
+                },
+            ])
+            expect(mockCommsApi.threads.createThread).not.toHaveBeenCalled()
         })
 
         it('should post once the user confirms', async () => {
             channelOf(11)
             mockCommsApi.threads.createThread.mockResolvedValue(createMockThread())
 
-            await createThread.execute(everyone, mockCommsApi, createMockToolRequest('confirmed'))
+            const request = createMockToolRequest('confirmed')
 
+            await createThread.execute(everyone, mockCommsApi, request)
+
+            expect(request.checked).toEqual(['notify-everyone'])
             expect(mockCommsApi.threads.createThread).toHaveBeenCalledWith(
                 expect.objectContaining({ notifyAudience: 'channel' }),
             )
