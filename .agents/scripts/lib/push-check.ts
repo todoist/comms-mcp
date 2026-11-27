@@ -147,6 +147,13 @@ export function checkCommand({
                 : followsTags(path, target)
                   ? [...named, ...followedTags(checkout, named)]
                   : named
+            // What's checked out, a branch or a tag moves first, so the repository can't show what
+            // this sends yet, not even for a push of tags alone, which names no source.
+            if (checkout.movedFirst) {
+                if (target.kind === 'push') onlyPullRequests = false
+                found.add('moved')
+                continue
+            }
             for (const source of sources) {
                 const result = checkSource(checkout, source, target.kind)
                 if (result === 'ok') continue
@@ -206,9 +213,13 @@ function widest(a: Staged | undefined, b: Staged | undefined): Staged | undefine
     return a === 'all' || b === 'all' ? 'all' : (a ?? b)
 }
 
-/** Whether a `git add` takes the whole checkout: no paths, `:/`, or `.` from its top folder. */
+/**
+ * Whether a `git add` takes the whole checkout: no paths, `:/`, or `.` from its top folder, and
+ * nothing left out by an exclusion such as `':!src/a.ts'`.
+ */
 function stagesWholeCheckout(target: PushTarget, root: string): boolean {
     if (target.sources.length === 0) return true
+    if (target.sources.some((path) => /^:(!|\^|\([^)]*\bexclude\b)/.test(path))) return false
     return target.sources.some(
         (path) =>
             path === ':/' ||
@@ -441,8 +452,9 @@ function denyReason(found: Set<SourceResult>, onlyPullRequests: boolean): string
     }
     if (found.has('moved')) {
         paragraphs.push(
-            'This changes what is checked out, or moves a branch (`git switch`, `git checkout`, ' +
-                '`git rebase`, `git pull`, `git branch -f` and the like), before it pushes, so the ' +
+            'This changes what is checked out, or moves a branch or tag (`git switch`, `git ' +
+                'checkout`, `git rebase`, `git pull`, `git branch -f`, `git tag` and the like), ' +
+                'before it pushes, so the ' +
                 "push check can't tell what it will send. Run the push as a command of its own.",
         )
     }

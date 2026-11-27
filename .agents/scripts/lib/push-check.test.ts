@@ -119,6 +119,9 @@ describe('pushes it checks', () => {
             'git add src/a.ts && git commit -m x && git push',
             'git add -A && git commit -m x src/a.ts && git push',
             'git add -A && git commit -p && git push',
+            "git add . ':!src/a.ts' && git commit -m x && git push",
+            "git add -A ':(exclude)src/new.ts' && git commit -m x && git push",
+            'git add -A -np && git commit -m x && git push',
             'git commit -m x && git add -A && git push',
             'git commit -am x && gh pr create --fill',
         ]) {
@@ -393,6 +396,20 @@ describe('pushes it stops before reading them', () => {
                 'git switch -c fresh && git commit -qam more && git push origin refs/heads/fresh',
             ),
         ).toContain('npm run verify')
+    })
+
+    it('stops a push after a tag made or moved in the same command', () => {
+        commitOnBranch('feature', 'src/b.ts')
+        repo.git(['tag', 'v0.1', 'main'])
+        // The tags it sends don't exist yet, or hold something else, when the check runs.
+        for (const command of [
+            'git tag v1 && git push --tags',
+            'git tag -f v0.1 && git push origin v0.1',
+            'git tag -a v1 -m x && git push --follow-tags origin main',
+        ]) {
+            expect(denial(command), command).toContain('Run the push as a command of its own.')
+        }
+        expect(check('git tag -l && git push --tags').decision).toBe('allow')
     })
 
     it('stops a push of a branch named by a variable, or one that does not exist', () => {

@@ -17,7 +17,8 @@ import { readCommands, type ShellItem } from './shell-commands.ts'
  * - `create`: a branch made from what's checked out, named in `sources`; `force` when it replaces a
  *   branch that may exist already (`git switch -C`, `git checkout -B`), and `switches` when the
  *   command checks it out too (all but `git branch <name>`).
- * - `move`: a command that changes what's checked out, such as `git switch` or `git rebase`.
+ * - `move`: a command that changes what's checked out, such as `git switch` or `git rebase`, or
+ *   moves a branch or a tag to wherever it likes, such as `git branch -f` or `git tag`.
  * - `dir`: the folder it runs in, or null when the command doesn't say, as after `cd "$REPO"`.
  * - `implicit`: a push with no refspec, so git's settings decide what it sends, to `remote` (null
  *   when the command names none).
@@ -336,6 +337,8 @@ function readGit(
         targets.push({ kind: 'move', dir: inDir, sources: [] })
     } else if (subcommand === 'branch' && movesBranch(args)) {
         targets.push({ kind: 'move', dir: inDir, sources: [] })
+    } else if (subcommand === 'tag' && makesTag(args)) {
+        targets.push({ kind: 'move', dir: inDir, sources: [] })
     }
     if (subcommand !== 'push') return
     const push = readPush(args, configured, extraArgs)
@@ -418,6 +421,11 @@ function readAdd(args: string[]): { sources: string[]; stages: Staged } | undefi
             )
         ) {
             return undefined
+        } else if (/^-[a-zA-Z]{2,}$/.test(word)) {
+            // A cluster such as `-Av`, every letter an option of its own
+            if (/[npieN]/.test(word)) return undefined
+            if (word.includes('A')) stages = 'all'
+            else if (word.includes('u')) stages ??= 'tracked'
         } else if (word === '--chmod') i++
         else if (!word.startsWith('-')) paths.push(word)
     }
@@ -450,6 +458,18 @@ function createdBranch(
     const after = args.slice(at + 2).filter((word) => !word.startsWith('-'))
     if (name === undefined || after.length > 0) return undefined
     return { name, force: ['-C', '--force-create', '-B'].includes(args[at] as string) }
+}
+
+/**
+ * Whether `git tag` makes or moves a tag, rather than listing, deleting or verifying them. A push
+ * after it sends a tag that didn't exist, or held something else, when the check read the
+ * repository (`git tag v1 && git push --tags`).
+ */
+function makesTag(args: string[]): boolean {
+    const reads =
+        /^(-l|--list|-d|--delete|-v|--verify|-n\d*|--contains|--no-contains|--merged|--no-merged|--points-at|--sort|--format|--column|--no-column)(=.*)?$/
+    if (args.some((word) => reads.test(word))) return false
+    return args.some((word) => !word.startsWith('-'))
 }
 
 /** Whether `git branch` moves, renames or copies a branch over another: it may then hold anything. */

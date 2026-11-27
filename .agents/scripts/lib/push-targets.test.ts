@@ -163,6 +163,14 @@ describe('findTargets', () => {
         ],
         // `--` after a branch, with no file, only says it is a branch.
         ['git checkout other --', [['move', '/w', '']]],
+        // A tag made or moved before the push; listing, deleting or verifying them moves nothing
+        [
+            'git tag v1; git tag -f -a v0 -m x HEAD~1; git tag; git tag -l "v*"; git tag -d v1; git tag --contains HEAD',
+            [
+                ['move', '/w', ''],
+                ['move', '/w', ''],
+            ],
+        ],
         // Commands that move a branch to wherever they like
         [
             'git branch -f a; git branch -M b; git update-ref refs/heads/c HEAD',
@@ -287,6 +295,11 @@ describe('findTargets', () => {
         expect(taken('git add -A; git add .; git add -u; git add -p; git add -n .')).toEqual([
             { kind: 'stage', sources: [], stages: 'all' },
             { kind: 'stage', sources: ['.'], stages: 'all' },
+            { kind: 'stage', sources: [], stages: 'tracked' },
+        ])
+        // Clusters: each letter counts, and a dry run or `--patch` anywhere stages nothing known.
+        expect(taken('git add -Av; git add -uv; git add -A -np; git add -An')).toEqual([
+            { kind: 'stage', sources: [], stages: 'all' },
             { kind: 'stage', sources: [], stages: 'tracked' },
         ])
     })
