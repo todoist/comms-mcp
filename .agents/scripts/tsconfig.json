@@ -2,6 +2,7 @@
     // Agent tooling runs straight from source with Node's type stripping, so it may only use
     // erasable TypeScript syntax and must import files with their .ts extension.
     // The root config leaves test files out of the type check; the tooling's tests are checked.
+    // The Pi extension in .pi/ is agent tooling too, and its test loads it the same way.
     "extends": "../../tsconfig.json",
     "compilerOptions": {
         "rootDir": "../..",
@@ -13,6 +14,6 @@
         "lib": ["es2023"],
         "types": ["node", "vitest/globals"]
     },
-    "include": ["."],
+    "include": [".", "../../.pi/**/*"],
     "exclude": []
 }

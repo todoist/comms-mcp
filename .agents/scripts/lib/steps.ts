@@ -18,7 +18,7 @@ export const VERIFY_STEPS: Step[] = [
     {
         name: 'lint',
         command: 'sh',
-        args: ['-c', `${bin('oxlint')} src scripts .agents/scripts *.config.js *.config.ts`],
+        args: ['-c', `${bin('oxlint')} src scripts .agents/scripts .pi *.config.js *.config.ts`],
     },
     { name: 'format', command: bin('oxfmt'), args: ['--check'] },
     { name: 'types', command: bin('tsc'), args: ['--noEmit'] },
