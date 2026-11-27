@@ -4,6 +4,7 @@ import type { CommsTool } from '../comms-tool.js'
 import { logConfirmation } from '../utils/confirmation-log.js'
 import { degradeWithLog } from '../utils/degrade.js'
 import { DeleteObjectOutputSchema, type DeleteObjectStructured } from '../utils/output-schemas.js'
+import { quote } from '../utils/quote.js'
 import { DeleteTargetTypeSchema } from '../utils/target-types.js'
 import { ToolNames } from '../utils/tool-names.js'
 
@@ -74,13 +75,6 @@ async function deleteMessageBranch(args: Args, client: CommsApi): Promise<Branch
 }
 
 const CANNOT_UNDO = "This can't be undone."
-const QUOTE_LIMIT = 80
-
-/** A title or message short enough to quote in a question. */
-function quote(text: string): string {
-    return text.length > QUOTE_LIMIT ? `${text.slice(0, QUOTE_LIMIT - 1)}…` : text
-}
-
 /**
  * The question put to the user before a delete, naming what would go. Looked up only to ask.
  * The name only makes the question clearer, so a lookup that fails names the object by its ID

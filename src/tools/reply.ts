@@ -9,7 +9,9 @@ import {
 } from '@todoist/comms-sdk'
 import { z } from 'zod'
 import type { CommsTool } from '../comms-tool.js'
+import { confirmNotifyingEveryone, declinedNotifyingEveryone } from '../utils/notify-everyone.js'
 import { type ReplyOutput, ReplyOutputSchema } from '../utils/output-schemas.js'
+import { quote } from '../utils/quote.js'
 import { ReplyTargetTypeSchema } from '../utils/target-types.js'
 import { ToolNames } from '../utils/tool-names.js'
 
@@ -121,7 +123,7 @@ const reply = {
     parameters: ArgsSchema,
     outputSchema: ReplyOutputSchema.shape,
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
-    async execute(args, client) {
+    async execute(args, client, request?) {
         const { targetType, targetId, content, recipients, groups, notifyAudience, threadAction } =
             args
 
@@ -135,6 +137,17 @@ const reply = {
             throw new Error(
                 'threadAction can only be used when replying to a thread; conversations cannot be closed.',
             )
+        }
+
+        // Called directly, with no MCP request, the tool cannot ask, so it looks nothing up.
+        if (request && targetType === 'thread' && notifyAudience === 'channel') {
+            const thread = await client.threads.getThread(targetId)
+            const confirmation = await confirmNotifyingEveryone(client, request, {
+                channelId: thread.channelId,
+                describePost: async () => `replies to the thread "${quote(thread.title)}"`,
+            })
+            if (confirmation?.status === 'asking') return confirmation.result
+            if (confirmation?.status === 'declined') throw declinedNotifyingEveryone()
         }
 
         const groupsToNotify =

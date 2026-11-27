@@ -1,7 +1,9 @@
 import type { CommsApi } from '@todoist/comms-sdk'
 import { vi } from 'vitest'
 import {
+    createMockChannel,
     createMockThread,
+    createMockToolRequest,
     extractStructuredContent,
     extractTextContent,
     TEST_IDS,
@@ -13,6 +15,9 @@ const mockCommsApi = vi.mocked(
     {
         threads: {
             createThread: vi.fn(),
+        },
+        channels: {
+            getChannel: vi.fn(),
         },
         inbox: {
             unarchiveThread: vi.fn(),
@@ -421,6 +426,93 @@ describe(`${CREATE_THREAD} tool`, () => {
                     mockCommsApi,
                 ),
             ).rejects.toThrow('Channel not found')
+        })
+    })
+
+    // The web app asks before "Everyone in channel" notifies 10 people or more, and so does this.
+    describe('asking before notifying everyone in the channel', () => {
+        /** A channel of `members` people, one of whom is the poster. */
+        function channelOf(members: number) {
+            mockCommsApi.channels.getChannel.mockResolvedValue(
+                createMockChannel({
+                    name: 'Design',
+                    userIds: Array.from({ length: members }, (_, index) => index + 1),
+                }),
+            )
+        }
+
+        const everyone = {
+            channelId: TEST_IDS.CHANNEL_1,
+            title: 'Q3 kickoff',
+            content: 'Agenda inside',
+            notifyAudience: 'channel' as const,
+        }
+
+        it('should ask before notifying 10 or more people, and post nothing yet', async () => {
+            channelOf(11)
+            const request = createMockToolRequest('asking')
+
+            const result = await createThread.execute(everyone, mockCommsApi, request)
+
+            expect(request.questions).toEqual([
+                {
+                    key: 'notify-everyone',
+                    message:
+                        'Notify 10 people? This posts the thread "Q3 kickoff" and notifies everyone in the channel "Design".',
+                },
+            ])
+            expect(result).toEqual({
+                inputRequired: expect.objectContaining({ resultType: 'input_required' }),
+            })
+            expect(mockCommsApi.threads.createThread).not.toHaveBeenCalled()
+        })
+
+        it('should post without asking when fewer than 10 people would be notified', async () => {
+            channelOf(10)
+            mockCommsApi.threads.createThread.mockResolvedValue(createMockThread())
+            const request = createMockToolRequest('asking')
+
+            await createThread.execute(everyone, mockCommsApi, request)
+
+            expect(request.questions).toEqual([])
+            expect(mockCommsApi.threads.createThread).toHaveBeenCalledTimes(1)
+        })
+
+        it('should not look the channel up when not notifying everyone', async () => {
+            mockCommsApi.threads.createThread.mockResolvedValue(createMockThread())
+            const request = createMockToolRequest('asking')
+
+            await createThread.execute(
+                { channelId: TEST_IDS.CHANNEL_1, title: 'Q3 kickoff', content: 'Agenda inside' },
+                mockCommsApi,
+                request,
+            )
+
+            expect(mockCommsApi.channels.getChannel).not.toHaveBeenCalled()
+            expect(request.questions).toEqual([])
+            expect(mockCommsApi.threads.createThread).toHaveBeenCalledTimes(1)
+        })
+
+        it('should post once the user confirms', async () => {
+            channelOf(11)
+            mockCommsApi.threads.createThread.mockResolvedValue(createMockThread())
+
+            await createThread.execute(everyone, mockCommsApi, createMockToolRequest('confirmed'))
+
+            expect(mockCommsApi.threads.createThread).toHaveBeenCalledWith(
+                expect.objectContaining({ notifyAudience: 'channel' }),
+            )
+        })
+
+        it('should post nothing when the user declines, and say how to reach fewer people', async () => {
+            channelOf(11)
+
+            await expect(
+                createThread.execute(everyone, mockCommsApi, createMockToolRequest('declined')),
+            ).rejects.toThrow(
+                "Not posted: the user declined to notify everyone in the channel. Don't try again unless they ask; to reach fewer people, pass recipients or groups instead of notifyAudience: 'channel'.",
+            )
+            expect(mockCommsApi.threads.createThread).not.toHaveBeenCalled()
         })
     })
 })

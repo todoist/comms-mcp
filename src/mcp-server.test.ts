@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs'
 import { Client, InMemoryTransport } from '@modelcontextprotocol/client'
-import { ThreadsClient } from '@todoist/comms-sdk'
+import { ChannelsClient, ThreadsClient } from '@todoist/comms-sdk'
 import { afterEach, vi } from 'vitest'
 import { getMcpServer } from './mcp-server.js'
-import { createMockThread, TEST_IDS } from './utils/test-helpers.js'
+import { createMockChannel, createMockThread, TEST_IDS } from './utils/test-helpers.js'
 
 const packageVersion = (
     JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
@@ -115,5 +115,64 @@ describe('confirming a delete over MCP', () => {
         expect(getThread).not.toHaveBeenCalled()
         expect(deleteThread).toHaveBeenCalledTimes(1)
         expect(deleteThread).toHaveBeenCalledWith(TEST_IDS.THREAD_1)
+    })
+})
+
+// Declining leaves nothing to describe in create-thread's result schema, so the model gets an
+// error result that says what happened and how to reach fewer people.
+describe('confirming a post to everyone in a channel over MCP', () => {
+    afterEach(() => {
+        vi.restoreAllMocks()
+    })
+
+    it('should post nothing when the user declines, and tell the model why', async () => {
+        vi.spyOn(ChannelsClient.prototype, 'getChannel').mockResolvedValue(
+            createMockChannel({
+                name: 'Design',
+                userIds: Array.from({ length: 11 }, (_, index) => index + 1),
+            }),
+        )
+        const createThread = vi.spyOn(ThreadsClient.prototype, 'createThread')
+        const questions: string[] = []
+
+        const server = getMcpServer({ token: 'test-token' })
+        const client = new Client(
+            { name: 'test-client', version: '1.0.0' },
+            { capabilities: { elicitation: {} } },
+        )
+        client.setRequestHandler('elicitation/create', async (request) => {
+            questions.push(request.params.message)
+            return { action: 'decline' }
+        })
+        const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
+        await Promise.all([server.connect(serverTransport), client.connect(clientTransport)])
+        try {
+            const result = await client.callTool({
+                name: 'create-thread',
+                arguments: {
+                    channelId: TEST_IDS.CHANNEL_1,
+                    title: 'Q3 kickoff',
+                    content: 'Agenda inside',
+                    notifyAudience: 'channel',
+                },
+            })
+
+            expect(questions).toEqual([
+                'Notify 10 people? This posts the thread "Q3 kickoff" and notifies everyone in the channel "Design".',
+            ])
+            expect(createThread).not.toHaveBeenCalled()
+            expect(result).toEqual({
+                content: [
+                    {
+                        type: 'text',
+                        text: "Not posted: the user declined to notify everyone in the channel. Don't try again unless they ask; to reach fewer people, pass recipients or groups instead of notifyAudience: 'channel'.",
+                    },
+                ],
+                isError: true,
+            })
+        } finally {
+            await client.close()
+            await server.close()
+        }
     })
 })
