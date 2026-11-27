@@ -34,6 +34,7 @@ import { loadConversation } from '../src/tools/load-conversation.js'
 import { loadThread } from '../src/tools/load-thread.js'
 import { markDone } from '../src/tools/mark-done.js'
 import { markRead } from '../src/tools/mark-read.js'
+import { pin } from '../src/tools/pin.js'
 import { react } from '../src/tools/react.js'
 import { reply } from '../src/tools/reply.js'
 import { searchContent } from '../src/tools/search-content.js'
@@ -69,6 +70,7 @@ const tools: Record<string, ExecutableTool> = {
     'delete-object': deleteObject,
     reply: reply,
     react: react,
+    pin: pin,
     'mark-done': markDone,
     'mark-read': markRead,
     'build-link': buildLink,

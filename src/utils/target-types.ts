@@ -27,6 +27,13 @@ export const ReactionTargetTypeSchema = ReactionTargetType.schema
 export type ReactionTargetType = z.infer<typeof ReactionTargetTypeSchema>
 
 /**
+ * Target types for pins
+ */
+export const PinTargetType = createEnumSchema(['comment', 'message'])
+export const PinTargetTypeSchema = PinTargetType.schema
+export type PinTargetType = z.infer<typeof PinTargetTypeSchema>
+
+/**
  * Targets that can be both updated and deleted (mutating-object tools).
  * Kept as a shared const so update-object and delete-object stay in lockstep
  * if/when the supported surface changes.
