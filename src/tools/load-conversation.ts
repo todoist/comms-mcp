@@ -56,6 +56,8 @@ type LoadConversationStructured = {
         posted: string
         messageUrl: string
         attachments?: OutputAttachment[]
+        pinnedDate?: string
+        pinnedBy?: number
     }>
     totalMessages: number
 }
@@ -134,9 +136,13 @@ const loadConversation = {
 
         for (const message of messages) {
             const messageDate = message.posted.toISOString()
+            const pinned =
+                message.pinnedDate && message.pinnedBy
+                    ? ` | **Pinned:** ${message.pinnedDate.toISOString()} by ${userInfo.get(message.pinnedBy)?.fullName ?? UNKNOWN_USER}`
+                    : ''
             lines.push(`### Message ${message.id}`)
             lines.push(
-                `**Creator:** ${userInfo.get(message.creator)?.fullName ?? UNKNOWN_USER} | **Posted:** ${messageDate}`,
+                `**Creator:** ${userInfo.get(message.creator)?.fullName ?? UNKNOWN_USER} | **Posted:** ${messageDate}${pinned}`,
             )
             lines.push('')
             lines.push(message.content)
@@ -179,6 +185,8 @@ const loadConversation = {
                         messageId: m.id,
                     }),
                 attachments: attachmentsByMessage.get(m.id),
+                pinnedDate: m.pinnedDate?.toISOString(),
+                pinnedBy: m.pinnedBy ?? undefined,
             })),
             totalMessages: conversation.messageCount ?? 0,
         }

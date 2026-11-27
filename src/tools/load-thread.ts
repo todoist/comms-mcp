@@ -66,6 +66,8 @@ type LoadThreadStructured = {
         posted: string
         commentUrl: string
         attachments?: OutputAttachment[]
+        pinnedDate?: string
+        pinnedBy?: number
     }>
     totalComments: number
 }
@@ -98,6 +100,7 @@ const loadThread = {
         const userIds = new Set<number>([thread.creator])
         for (const comment of comments) {
             userIds.add(comment.creator)
+            if (comment.pinnedBy) userIds.add(comment.pinnedBy)
         }
         if (includeParticipants && thread.participants) {
             for (const participantId of thread.participants) {
@@ -163,9 +166,13 @@ const loadThread = {
         for (const comment of comments) {
             const commentDate = comment.posted.toISOString()
             const commentCreatorName = userLookup[comment.creator]
+            const pinned =
+                comment.pinnedDate && comment.pinnedBy
+                    ? ` | **Pinned:** ${comment.pinnedDate.toISOString()} by ${userLookup[comment.pinnedBy] ?? UNKNOWN_USER} (${comment.pinnedBy})`
+                    : ''
             lines.push(`### Comment ${comment.id}`)
             lines.push(
-                `**Creator:** ${commentCreatorName ?? UNKNOWN_USER} (${comment.creator}) | **Posted:** ${commentDate}`,
+                `**Creator:** ${commentCreatorName ?? UNKNOWN_USER} (${comment.creator}) | **Posted:** ${commentDate}${pinned}`,
             )
             lines.push('')
             lines.push(comment.content)
@@ -236,6 +243,8 @@ const loadThread = {
                         commentId: c.id,
                     }),
                 attachments: attachmentsByComment.get(c.id),
+                pinnedDate: c.pinnedDate?.toISOString(),
+                pinnedBy: c.pinnedBy ?? undefined,
             })),
             totalComments: thread.commentCount,
         }
