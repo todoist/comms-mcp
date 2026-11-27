@@ -92,7 +92,11 @@ const loadConversation = {
                   }),
         ])
 
-        const { userIds } = conversation
+        // A pinner may have left the chat since, so they're looked up as well.
+        const userIds = new Set(conversation.userIds)
+        for (const message of messages) {
+            if (message.pinnedBy) userIds.add(message.pinnedBy)
+        }
         // A participant that cannot be resolved is dropped rather than failing the
         // whole conversation; the message list matters more than every name.
         const userInfo = await resolveUsersWithLog(
@@ -100,7 +104,7 @@ const loadConversation = {
             ToolNames.LOAD_CONVERSATION,
             'failed to resolve conversation participant',
             conversation.workspaceId,
-            userIds,
+            Array.from(userIds),
         )
 
         // Build text content
