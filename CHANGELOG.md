@@ -1,3 +1,9 @@
+## [11.5.0](https://github.com/todoist/comms-mcp/compare/v11.4.0...v11.5.0) (2026-11-27)
+
+### Features
+
+* show pins in load-thread and load-conversation ([#102](https://github.com/todoist/comms-mcp/issues/102)) ([5ead1a0](https://github.com/todoist/comms-mcp/commit/5ead1a0f9df33ba47702e99e9526d7250410140c))
+
 ## [11.4.0](https://github.com/todoist/comms-mcp/compare/v11.3.0...v11.4.0) (2026-11-27)
 
 ### Features
