@@ -37,8 +37,9 @@ it.skipIf(!GIT_HAS_VERBATIM_PATCH_ID)(
     },
 )
 
-// root can write a read-only folder, so there is no record it fails to remove.
-it.skipIf(!GIT_HAS_VERBATIM_PATCH_ID || process.getuid?.() === 0)(
+// Root can write a read-only folder, and chmod cannot make one read-only on Windows, so there is
+// no record it fails to remove.
+it.skipIf(!GIT_HAS_VERBATIM_PATCH_ID || process.getuid?.() === 0 || process.platform === 'win32')(
     "still says what stopped the run when it can't remove the record",
     () => {
         const base = repo.git(['merge-base', 'HEAD', 'main']).stdout.trim()

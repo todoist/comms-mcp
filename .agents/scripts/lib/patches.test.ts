@@ -151,8 +151,9 @@ describe.skipIf(!GIT_HAS_VERBATIM_PATCH_ID)('passed patches', () => {
         expect(readPassedPatches(repo.dir)).toHaveLength(1)
     })
 
-    // root can write a read-only file, so there is no record it fails to rewrite.
-    it.skipIf(process.getuid?.() === 0)(
+    // Root can write a read-only file, and chmod cannot make one read-only for Node on Windows,
+    // so there is no record it fails to rewrite.
+    it.skipIf(process.getuid?.() === 0 || process.platform === 'win32')(
         "deletes the record when it can't rewrite it, and throws when it can't delete it",
         () => {
             const record = join(stateDir(repo.dir), 'verified-patches.json')

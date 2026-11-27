@@ -135,6 +135,28 @@ describe('a code change', () => {
         },
     )
 
+    it.skipIf(!GIT_HAS_VERBATIM_PATCH_ID)(
+        'forgets tracked changes the failing run sees beside an unrelated untracked file',
+        async () => {
+            repo.git(['commit', '--quiet', '-am', 'change a'])
+            await verify([pass('lint')])
+            expect(readPassedPatches(repo.dir)).toHaveLength(1)
+            repo.git(['reset', '--quiet', 'HEAD~1'])
+            repo.write('src/scratch.ts', 'export const s = 1\n')
+            await verify([fail('tests')])
+            expect(readPassedPatches(repo.dir)).toEqual([])
+
+            // `-a` leaves the untracked file out, so the commit holds the changes that failed.
+            repo.git(['commit', '--quiet', '-am', 'change a'])
+            const push = checkCommand({
+                root: repo.dir,
+                command: 'git push origin feature',
+                cwd: repo.dir,
+            })
+            expect(push.decision).toBe('deny')
+        },
+    )
+
     it('records nothing when a step fails, and forgets an earlier pass', async () => {
         writeVerified(repo.dir, { fingerprint: 'earlier', head: 'x', at: 'then' })
         const result = await verify([pass('lint'), fail('tests')])

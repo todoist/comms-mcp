@@ -66,9 +66,9 @@ function patchIdOf(
 }
 
 /**
- * The patch ids of what could be committed next, from `base`: HEAD's changes, what's staged, and
- * the whole working tree, untracked files included. The working tree is read through a copy of the
- * index with everything added, so the real index is left as it is.
+ * The patch ids of what could be committed next, from `base`: HEAD's changes, what's staged, the
+ * tracked changes `git commit -a` would take, and the whole working tree, untracked files
+ * included. The working tree is read through a copy of the index, so the real one is left as it is.
  */
 function pendingPatchIds(root: string, base: string): Set<string> {
     const ids = [branchPatchId(root, base, 'HEAD'), patchIdOf(root, ['--cached', base])]
@@ -79,8 +79,11 @@ function pendingPatchIds(root: string, base: string): Set<string> {
         const real = index.stdout.trim()
         if (index.ok && existsSync(real)) copyFileSync(real, copy)
         const env = { GIT_INDEX_FILE: copy }
-        if (git(root, ['add', '--all'], { env }).ok)
-            ids.push(patchIdOf(root, ['--cached', base], env))
+        // Tracked changes first, then untracked files on top of them.
+        for (const option of ['--update', '--all']) {
+            if (git(root, ['add', option], { env }).ok)
+                ids.push(patchIdOf(root, ['--cached', base], env))
+        }
     } finally {
         rmSync(scratch, { recursive: true, force: true })
     }
