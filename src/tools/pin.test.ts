@@ -86,6 +86,7 @@ describe(`${ToolNames.PIN} tool`, () => {
             mockCommsApi,
         )
 
+        expect(extractTextContent(result)).toContain('# Unpinned')
         expect(extractTextContent(result)).not.toContain('**Pinned:**')
         expect(result.structuredContent.pinnedDate).toBeUndefined()
         expect(result.structuredContent.pinnedBy).toBeUndefined()
