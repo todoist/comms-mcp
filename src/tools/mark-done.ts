@@ -26,7 +26,7 @@ const ArgsSchema = {
     channelId: z
         .string()
         .optional()
-        .describe('Mark all threads in this channel as done (threads only).'),
+        .describe("Mark this channel's threads read (needs archive: false)."),
 
     // Operations
     markRead: z.boolean().optional().describe('Mark items as read (default: true).'),
@@ -105,13 +105,11 @@ const markDone = {
             )
         }
 
-        // Reject channel-only bulk archive up front: the SDK's `inbox.archiveAll`
-        // requires a workspaceId, so without one we'd silently drop the archive
-        // step while reporting success — exactly the "lie about state" failure
-        // mode this tool must avoid.
-        if (type === 'thread' && archive && channelId && !workspaceId) {
+        // The server's archive-all ignores the channel and archives the whole
+        // workspace's inbox, so a channel archive is refused before anything runs.
+        if (archive && channelId) {
             throw new Error(
-                'Archiving by channelId requires workspaceId. Pass both, or pass individual `ids` instead.',
+                'Archiving by channelId is not supported yet: the server can only archive a whole workspace inbox. Pass archive: false to mark the channel read, or pass the thread `ids` instead of channelId to archive.',
             )
         }
 
@@ -139,21 +137,8 @@ const markDone = {
                         }
                     }
 
-                    // Archive all (inbox operations). `archiveAll` requires a
-                    // workspaceId; with a channelId also present, pass it via
-                    // `channelIds` so the archive stays scoped to that channel.
-                    // The channel-only case is rejected up front in the
-                    // validation above so this branch is reachable only with
-                    // a workspaceId.
                     if (archive && workspaceId) {
-                        if (channelId) {
-                            await client.inbox.archiveAll({
-                                workspaceId,
-                                channelIds: [channelId],
-                            })
-                        } else {
-                            await client.inbox.archiveAll({ workspaceId })
-                        }
+                        await client.inbox.archiveAll({ workspaceId })
                     }
                 }
 

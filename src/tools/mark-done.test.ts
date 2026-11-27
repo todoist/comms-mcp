@@ -469,26 +469,22 @@ describe(`${MARK_DONE} tool`, () => {
             )
         })
 
-        it('rejects channel-only bulk archive (would silently drop the archive step)', async () => {
-            mockCommsApi.threads.markAllRead.mockResolvedValue(undefined as never)
-            mockCommsApi.inbox.archiveAll.mockResolvedValue(undefined as never)
-
-            // `archive: true` set explicitly so the test pins the rejection to
-            // the archive-without-workspaceId rule rather than the tool's
-            // default. If the default ever changes, this case still tests what
-            // it claims to.
+        it.each([
+            ['with its workspace, archiving by default', { workspaceId: TEST_IDS.WORKSPACE_1 }],
+            ['on its own', { archive: true }],
+            ['while clearing unread', { workspaceId: TEST_IDS.WORKSPACE_1, clearUnread: true }],
+        ])('refuses to archive a channel %s', async (_name, args) => {
             await expect(
                 markDone.execute(
-                    {
-                        type: 'thread',
-                        channelId: TEST_IDS.CHANNEL_1,
-                        archive: true,
-                    },
+                    { type: 'thread', channelId: TEST_IDS.CHANNEL_1, ...args },
                     mockCommsApi,
                 ),
-            ).rejects.toThrow('Archiving by channelId requires workspaceId')
+            ).rejects.toThrow(
+                'Archiving by channelId is not supported yet: the server can only archive a whole workspace inbox. Pass archive: false to mark the channel read, or pass the thread `ids` instead of channelId to archive.',
+            )
 
             expect(mockCommsApi.threads.markAllRead).not.toHaveBeenCalled()
+            expect(mockCommsApi.threads.clearUnread).not.toHaveBeenCalled()
             expect(mockCommsApi.inbox.archiveAll).not.toHaveBeenCalled()
         })
 
@@ -512,16 +508,15 @@ describe(`${MARK_DONE} tool`, () => {
             expect(extractTextContent(result)).toMatchSnapshot()
         })
 
-        it('scopes archive to a channel when workspaceId + channelId are both provided', async () => {
+        it('marks a channel read inside its workspace without archiving when archive=false', async () => {
             mockCommsApi.threads.markAllRead.mockResolvedValue(undefined as never)
-            mockCommsApi.inbox.archiveAll.mockResolvedValue(undefined as never)
 
             const result = await markDone.execute(
                 {
                     type: 'thread',
                     workspaceId: TEST_IDS.WORKSPACE_1,
                     channelId: TEST_IDS.CHANNEL_1,
-                    archive: true,
+                    archive: false,
                 },
                 mockCommsApi,
             )
@@ -530,10 +525,7 @@ describe(`${MARK_DONE} tool`, () => {
                 workspaceId: TEST_IDS.WORKSPACE_1,
                 channelId: TEST_IDS.CHANNEL_1,
             })
-            expect(mockCommsApi.inbox.archiveAll).toHaveBeenCalledWith({
-                workspaceId: TEST_IDS.WORKSPACE_1,
-                channelIds: [TEST_IDS.CHANNEL_1],
-            })
+            expect(mockCommsApi.inbox.archiveAll).not.toHaveBeenCalled()
 
             // Also pin the user-visible reporting so a regression in the
             // selectors payload can't slip through with the SDK calls green.
