@@ -30,19 +30,25 @@ const ArgsSchema = {
         .min(1)
         .optional()
         .describe('The new title. Only valid when targetType is "thread".'),
+    silent: z
+        .boolean()
+        .optional()
+        .describe(
+            'Skip the "changed the title" comment, so the thread is not marked unread or moved up. For automated renames, like adding "[resolved]". Only valid with title on a thread.',
+        ),
 }
 
 type Args = z.infer<z.ZodObject<typeof ArgsSchema>>
 type Branch = { textContent: string; structuredContent: UpdateObjectStructured }
 
 async function updateThreadBranch(args: Args, client: CommsApi): Promise<Branch> {
-    const { targetId, title, content } = args
+    const { targetId, title, content, silent } = args
 
     if (title === undefined && content === undefined) {
         throw new Error('At least one of `title` or `content` must be provided.')
     }
 
-    const thread = await client.threads.updateThread({ id: targetId, title, content })
+    const thread = await client.threads.updateThread({ id: targetId, title, content, silent })
 
     const threadUrl =
         thread.url ??

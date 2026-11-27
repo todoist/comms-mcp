@@ -108,6 +108,29 @@ describe(`${UPDATE_OBJECT} tool`, () => {
             )
         })
 
+        it('should pass silent through so a rename posts no title comment', async () => {
+            mockCommsApi.threads.updateThread.mockResolvedValue(
+                createMockThread({ title: '[resolved] Outage' }),
+            )
+
+            await updateObject.execute(
+                {
+                    targetType: 'thread',
+                    targetId: TEST_IDS.THREAD_1,
+                    title: '[resolved] Outage',
+                    silent: true,
+                },
+                mockCommsApi,
+            )
+
+            expect(mockCommsApi.threads.updateThread).toHaveBeenCalledWith({
+                id: TEST_IDS.THREAD_1,
+                title: '[resolved] Outage',
+                content: undefined,
+                silent: true,
+            })
+        })
+
         it('should update only the thread content', async () => {
             const mockThread = createMockThread({ content: 'New content only' })
             mockCommsApi.threads.updateThread.mockResolvedValue(mockThread)
