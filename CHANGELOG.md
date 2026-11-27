@@ -1,3 +1,10 @@
+## [11.6.0](https://github.com/todoist/comms-mcp/compare/v11.5.0...v11.6.0) (2026-11-27)
+
+### Features
+
+* ask before a post notifies everyone in a channel of 10 or more people ([#105](https://github.com/todoist/comms-mcp/issues/105)) ([ba1710e](https://github.com/todoist/comms-mcp/commit/ba1710ec226e07dce1aa9fbef8b164daf579bf9a))
+* ask the user to confirm before deleting a thread, comment or message ([#104](https://github.com/todoist/comms-mcp/issues/104)) ([bb91d59](https://github.com/todoist/comms-mcp/commit/bb91d592b99d6c2340154e20689fba6f6379a233))
+
 ## [11.5.0](https://github.com/todoist/comms-mcp/compare/v11.4.0...v11.5.0) (2026-11-27)
 
 ### Features
