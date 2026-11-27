@@ -18,6 +18,7 @@ const mockCommsApi = vi.mocked(
         },
         conversationMessages: {
             getMessages: vi.fn(),
+            getPinnedMessages: vi.fn(),
         },
         workspaceUsers: {
             getUsersByIds: vi.fn(),
@@ -45,6 +46,64 @@ describe(`${LOAD_CONVERSATION} tool`, () => {
     })
 
     describe('loading conversations successfully', () => {
+        it('should load only the pinned messages with pinnedOnly', async () => {
+            mockCommsApi.conversations.getConversation.mockResolvedValue(createMockConversation())
+            mockCommsApi.conversationMessages.getPinnedMessages.mockResolvedValue([
+                createMockConversationMessage({ id: TEST_IDS.MESSAGE_2 }),
+            ])
+            mockCommsApi.workspaceUsers.getUsersByIds.mockImplementation(usersByIds([]))
+
+            const result = await loadConversation.execute(
+                {
+                    conversationId: TEST_IDS.CONVERSATION_1,
+                    limit: 50,
+                    includeParticipants: false,
+                    pinnedOnly: true,
+                },
+                mockCommsApi,
+            )
+
+            expect(mockCommsApi.conversationMessages.getPinnedMessages).toHaveBeenCalledWith(
+                TEST_IDS.CONVERSATION_1,
+            )
+            expect(mockCommsApi.conversationMessages.getMessages).not.toHaveBeenCalled()
+            expect(extractTextContent(result)).toContain('## Pinned messages (1)')
+        })
+
+        it('should mark which messages are pinned, and by whom, even if they left', async () => {
+            mockCommsApi.conversations.getConversation.mockResolvedValue(
+                createMockConversation({ userIds: [TEST_IDS.USER_1, TEST_IDS.USER_2] }),
+            )
+            mockCommsApi.conversationMessages.getMessages.mockResolvedValue([
+                createMockConversationMessage({
+                    id: TEST_IDS.MESSAGE_1,
+                    pinnedDate: new Date('2026-11-27T09:00:00Z'),
+                    pinnedBy: TEST_IDS.USER_3,
+                }),
+                createMockConversationMessage({ id: TEST_IDS.MESSAGE_2 }),
+            ])
+            mockCommsApi.workspaceUsers.getUsersByIds.mockImplementation(
+                usersByIds([{ id: TEST_IDS.USER_3, fullName: 'Former Member' }]),
+            )
+
+            const result = await loadConversation.execute(
+                { conversationId: TEST_IDS.CONVERSATION_1, limit: 50, includeParticipants: false },
+                mockCommsApi,
+            )
+
+            const text = extractTextContent(result)
+            expect(text).toContain('**Pinned:** 2026-11-27T09:00:00.000Z by Former Member')
+            expect(text.match(/\*\*Pinned:\*\*/g)).toHaveLength(1)
+            expect(result.structuredContent.messages).toEqual([
+                expect.objectContaining({
+                    id: TEST_IDS.MESSAGE_1,
+                    pinnedDate: '2026-11-27T09:00:00.000Z',
+                    pinnedBy: TEST_IDS.USER_3,
+                }),
+                expect.not.objectContaining({ pinnedDate: expect.anything() }),
+            ])
+        })
+
         it('should load conversation with messages and participants', async () => {
             const mockConversation = createMockConversation({
                 userIds: [TEST_IDS.USER_1, TEST_IDS.USER_2],

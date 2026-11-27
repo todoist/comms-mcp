@@ -30,6 +30,10 @@ const ArgsSchema = {
         .optional()
         .default(true)
         .describe('Include participant user IDs in the response.'),
+    pinnedOnly: z
+        .boolean()
+        .optional()
+        .describe('Return only the pinned messages. Date filters and limit are ignored.'),
 }
 
 type LoadConversationStructured = {
@@ -52,6 +56,8 @@ type LoadConversationStructured = {
         posted: string
         messageUrl: string
         attachments?: OutputAttachment[]
+        pinnedDate?: string
+        pinnedBy?: number
     }>
     totalMessages: number
 }
@@ -64,20 +70,33 @@ const loadConversation = {
     outputSchema: LoadConversationOutputSchema.shape,
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
     async execute(args, client) {
-        const { conversationId, newerThanDate, olderThanDate, limit, includeParticipants } = args
+        const {
+            conversationId,
+            newerThanDate,
+            olderThanDate,
+            limit,
+            includeParticipants,
+            pinnedOnly,
+        } = args
 
         // Fetch conversation metadata and messages in parallel
         const [conversation, messages] = await Promise.all([
             client.conversations.getConversation(conversationId),
-            client.conversationMessages.getMessages({
-                conversationId,
-                newerThan: newerThanDate ? new Date(newerThanDate) : undefined,
-                olderThan: olderThanDate ? new Date(olderThanDate) : undefined,
-                limit,
-            }),
+            pinnedOnly
+                ? client.conversationMessages.getPinnedMessages(conversationId)
+                : client.conversationMessages.getMessages({
+                      conversationId,
+                      newerThan: newerThanDate ? new Date(newerThanDate) : undefined,
+                      olderThan: olderThanDate ? new Date(olderThanDate) : undefined,
+                      limit,
+                  }),
         ])
 
-        const { userIds } = conversation
+        // A pinner may have left the chat since, so they're looked up as well.
+        const userIds = new Set(conversation.userIds)
+        for (const message of messages) {
+            if (message.pinnedBy) userIds.add(message.pinnedBy)
+        }
         // A participant that cannot be resolved is dropped rather than failing the
         // whole conversation; the message list matters more than every name.
         const userInfo = await resolveUsersWithLog(
@@ -85,7 +104,7 @@ const loadConversation = {
             ToolNames.LOAD_CONVERSATION,
             'failed to resolve conversation participant',
             conversation.workspaceId,
-            userIds,
+            Array.from(userIds),
         )
 
         // Build text content
@@ -111,7 +130,7 @@ const loadConversation = {
             lines.push('')
         }
 
-        lines.push(`## Messages (${messages.length})`)
+        lines.push(`## ${pinnedOnly ? 'Pinned messages' : 'Messages'} (${messages.length})`)
         lines.push('')
 
         // Normalised once per message, for both the text and the structured content.
@@ -121,9 +140,13 @@ const loadConversation = {
 
         for (const message of messages) {
             const messageDate = message.posted.toISOString()
+            const pinned =
+                message.pinnedDate && message.pinnedBy
+                    ? ` | **Pinned:** ${message.pinnedDate.toISOString()} by ${userInfo.get(message.pinnedBy)?.fullName ?? UNKNOWN_USER}`
+                    : ''
             lines.push(`### Message ${message.id}`)
             lines.push(
-                `**Creator:** ${userInfo.get(message.creator)?.fullName ?? UNKNOWN_USER} | **Posted:** ${messageDate}`,
+                `**Creator:** ${userInfo.get(message.creator)?.fullName ?? UNKNOWN_USER} | **Posted:** ${messageDate}${pinned}`,
             )
             lines.push('')
             lines.push(message.content)
@@ -166,6 +189,8 @@ const loadConversation = {
                         messageId: m.id,
                     }),
                 attachments: attachmentsByMessage.get(m.id),
+                pinnedDate: m.pinnedDate?.toISOString(),
+                pinnedBy: m.pinnedBy ?? undefined,
             })),
             totalMessages: conversation.messageCount ?? 0,
         }

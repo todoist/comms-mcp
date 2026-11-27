@@ -30,6 +30,10 @@ const ArgsSchema = {
         .optional()
         .default(true)
         .describe('Include participant user IDs in the response.'),
+    pinnedOnly: z
+        .boolean()
+        .optional()
+        .describe('Return only the pinned comments. Date filters and limit are ignored.'),
 }
 
 type LoadThreadStructured = {
@@ -62,6 +66,8 @@ type LoadThreadStructured = {
         posted: string
         commentUrl: string
         attachments?: OutputAttachment[]
+        pinnedDate?: string
+        pinnedBy?: number
     }>
     totalComments: number
 }
@@ -74,23 +80,27 @@ const loadThread = {
     outputSchema: LoadThreadOutputSchema.shape,
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
     async execute(args, client) {
-        const { threadId, newerThanDate, olderThanDate, limit, includeParticipants } = args
+        const { threadId, newerThanDate, olderThanDate, limit, includeParticipants, pinnedOnly } =
+            args
 
         // Fetch thread metadata and comments in parallel
         const [thread, comments] = await Promise.all([
             client.threads.getThread(threadId),
-            client.comments.getComments({
-                threadId,
-                newerThan: newerThanDate ? new Date(newerThanDate) : undefined,
-                olderThan: olderThanDate ? new Date(olderThanDate) : undefined,
-                limit,
-            }),
+            pinnedOnly
+                ? client.comments.getPinnedComments(threadId)
+                : client.comments.getComments({
+                      threadId,
+                      newerThan: newerThanDate ? new Date(newerThanDate) : undefined,
+                      olderThan: olderThanDate ? new Date(olderThanDate) : undefined,
+                      limit,
+                  }),
         ])
 
         // Collect all unique user IDs
         const userIds = new Set<number>([thread.creator])
         for (const comment of comments) {
             userIds.add(comment.creator)
+            if (comment.pinnedBy) userIds.add(comment.pinnedBy)
         }
         if (includeParticipants && thread.participants) {
             for (const participantId of thread.participants) {
@@ -150,15 +160,19 @@ const loadThread = {
             lines.push('')
         }
 
-        lines.push(`## Comments (${comments.length})`)
+        lines.push(`## ${pinnedOnly ? 'Pinned comments' : 'Comments'} (${comments.length})`)
         lines.push('')
 
         for (const comment of comments) {
             const commentDate = comment.posted.toISOString()
             const commentCreatorName = userLookup[comment.creator]
+            const pinned =
+                comment.pinnedDate && comment.pinnedBy
+                    ? ` | **Pinned:** ${comment.pinnedDate.toISOString()} by ${userLookup[comment.pinnedBy] ?? UNKNOWN_USER} (${comment.pinnedBy})`
+                    : ''
             lines.push(`### Comment ${comment.id}`)
             lines.push(
-                `**Creator:** ${commentCreatorName ?? UNKNOWN_USER} (${comment.creator}) | **Posted:** ${commentDate}`,
+                `**Creator:** ${commentCreatorName ?? UNKNOWN_USER} (${comment.creator}) | **Posted:** ${commentDate}${pinned}`,
             )
             lines.push('')
             lines.push(comment.content)
@@ -229,6 +243,8 @@ const loadThread = {
                         commentId: c.id,
                     }),
                 attachments: attachmentsByComment.get(c.id),
+                pinnedDate: c.pinnedDate?.toISOString(),
+                pinnedBy: c.pinnedBy ?? undefined,
             })),
             totalComments: thread.commentCount,
         }

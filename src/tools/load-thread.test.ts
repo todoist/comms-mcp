@@ -18,6 +18,7 @@ const mockCommsApi = vi.mocked(
         },
         comments: {
             getComments: vi.fn(),
+            getPinnedComments: vi.fn(),
         },
         channels: {
             getChannel: vi.fn(),
@@ -60,6 +61,66 @@ describe(`${LOAD_THREAD} tool`, () => {
     })
 
     describe('loading threads successfully', () => {
+        it('should load only the pinned comments with pinnedOnly', async () => {
+            mockCommsApi.threads.getThread.mockResolvedValue(createMockThread())
+            mockCommsApi.comments.getPinnedComments.mockResolvedValue([
+                createMockComment({ id: TEST_IDS.COMMENT_2, creator: TEST_IDS.USER_1 }),
+            ])
+            mockCommsApi.channels.getChannel.mockResolvedValue(makeChannel())
+            mockCommsApi.workspaceUsers.getUsersByIds.mockImplementation(
+                usersByIds([makeUser(TEST_IDS.USER_1, 'Test User 1')]),
+            )
+
+            const result = await loadThread.execute(
+                {
+                    threadId: TEST_IDS.THREAD_1,
+                    limit: 50,
+                    includeParticipants: false,
+                    pinnedOnly: true,
+                },
+                mockCommsApi,
+            )
+
+            expect(mockCommsApi.comments.getPinnedComments).toHaveBeenCalledWith(TEST_IDS.THREAD_1)
+            expect(mockCommsApi.comments.getComments).not.toHaveBeenCalled()
+            expect(extractTextContent(result)).toContain('## Pinned comments (1)')
+        })
+
+        it('should mark which comments are pinned, and by whom', async () => {
+            mockCommsApi.threads.getThread.mockResolvedValue(createMockThread())
+            mockCommsApi.comments.getComments.mockResolvedValue([
+                createMockComment({
+                    id: TEST_IDS.COMMENT_1,
+                    pinnedDate: new Date('2026-11-27T09:00:00Z'),
+                    pinnedBy: TEST_IDS.USER_2,
+                }),
+                createMockComment({ id: TEST_IDS.COMMENT_2 }),
+            ])
+            mockCommsApi.channels.getChannel.mockResolvedValue(makeChannel())
+            mockCommsApi.workspaceUsers.getUsersByIds.mockImplementation(
+                usersByIds([makeUser(TEST_IDS.USER_2, 'Test User 2')]),
+            )
+
+            const result = await loadThread.execute(
+                { threadId: TEST_IDS.THREAD_1, limit: 50, includeParticipants: false },
+                mockCommsApi,
+            )
+
+            const text = extractTextContent(result)
+            expect(text).toContain(
+                `**Pinned:** 2026-11-27T09:00:00.000Z by Test User 2 (${TEST_IDS.USER_2})`,
+            )
+            expect(text.match(/\*\*Pinned:\*\*/g)).toHaveLength(1)
+            expect(result.structuredContent.comments).toEqual([
+                expect.objectContaining({
+                    id: TEST_IDS.COMMENT_1,
+                    pinnedDate: '2026-11-27T09:00:00.000Z',
+                    pinnedBy: TEST_IDS.USER_2,
+                }),
+                expect.not.objectContaining({ pinnedDate: expect.anything() }),
+            ])
+        })
+
         it('should load thread with comments and participants', async () => {
             const mockThread = createMockThread({
                 participants: [TEST_IDS.USER_1, TEST_IDS.USER_2],
