@@ -1,3 +1,4 @@
+import { inputRequired } from '@modelcontextprotocol/server'
 import type {
     Channel,
     Comment,
@@ -7,6 +8,7 @@ import type {
     User,
     Workspace,
 } from '@todoist/comms-sdk'
+import type { Confirmation, ToolRequest } from '@todoist/mcp-core'
 
 /**
  * Creates a mock Channel with all required properties and sensible defaults.
@@ -261,4 +263,28 @@ export function usersByIds<T extends { id: number }>(users: readonly T[]) {
     const byId = new Map(users.map((user) => [user.id, user]))
     return (async ({ userIds }: { userIds: number[] }) =>
         Object.fromEntries(userIds.map((id) => [id, byId.get(id) ?? null]))) as never
+}
+
+/**
+ * A `ToolRequest` whose `confirm` answers `status`, standing in for the MCP call a tool serves.
+ * `questions` records each question it was asked to put to the user, with a lazy message built.
+ */
+export function createMockToolRequest(status: Confirmation['status']): ToolRequest & {
+    questions: { key: string; message: string }[]
+} {
+    const questions: { key: string; message: string }[] = []
+    return {
+        questions,
+        async confirm({ key, message }) {
+            if (status !== 'asking') return { status }
+            questions.push({
+                key,
+                message: typeof message === 'function' ? await message() : message,
+            })
+            return {
+                status: 'asking',
+                result: { inputRequired: inputRequired({ requestState: `asking:${key}` }) },
+            }
+        },
+    }
 }

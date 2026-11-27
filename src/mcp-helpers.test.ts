@@ -56,13 +56,15 @@ describe('registerTools', () => {
         const first = captureRegistration(tool, firstClient)
         const second = captureRegistration(tool, secondClient)
         const args = { limit: 10, date: '2026-09-06' }
-        // The callback does not use the SDK request context.
+        // The tool never asks the user anything, so nothing reads the SDK request context.
         const context = {} as Parameters<typeof first.callback>[1]
         await first.callback(args, context)
         await second.callback(args, context)
+        // The third argument is the request mcp-core passes every call, for asking the user.
+        const request = expect.objectContaining({ confirm: expect.any(Function) })
         expect(tool.execute.mock.calls).toEqual([
-            [args, firstClient],
-            [args, secondClient],
+            [args, firstClient, request],
+            [args, secondClient, request],
         ])
     })
 })

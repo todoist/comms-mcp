@@ -53,6 +53,16 @@ When adding a new tool, it must be registered in **all** of these locations:
 
 If the tool pushes the fixed cost (the `tools/list` payload plus `instructions`) over `DEFAULT_TOKEN_BUDGET` in `src/token-footprint.test.ts`, raise the budget in the same PR and say why in the description. The test prints the cost per tool, so a reviewer can see where it went.
 
+## Ask before a write that cannot be undone
+
+`delete-object` asks the user to confirm before it deletes, through `request.confirm` from `@todoist/mcp-core` (the third argument of `execute`). A client that can show a form puts the question to the user; one that cannot gets `unavailable`, and the tool acts as it did before. Follow it for a new tool whose write cannot be undone:
+
+- Declare `request?` optional, so the tool can still be called with two arguments.
+- Run every check that can refuse the call before `confirm`, and write nothing before it: the tool runs from the top again once the user answers.
+- Pass `message` as a function when naming the object costs a lookup; it is built only when the question is asked.
+- On `declined`, return a normal result that writes nothing and tells the model not to try again.
+- Test it with `createMockToolRequest` from `src/utils/test-helpers.ts`.
+
 ## Code Style
 
 - Prefer `function` declarations over `const` arrow-function assignments for named

@@ -1,18 +1,28 @@
 import type { CommsApi } from '@todoist/comms-sdk'
 import { type Mock, vi } from 'vitest'
-import { extractTextContent, TEST_IDS } from '../utils/test-helpers.js'
+import {
+    createMockComment,
+    createMockConversationMessage,
+    createMockThread,
+    createMockToolRequest,
+    extractTextContent,
+    TEST_IDS,
+} from '../utils/test-helpers.js'
 import { ToolNames } from '../utils/tool-names.js'
 import { deleteObject } from './delete-object.js'
 
 const mockCommsApi = vi.mocked(
     {
         threads: {
+            getThread: vi.fn(),
             deleteThread: vi.fn(),
         },
         comments: {
+            getComment: vi.fn(),
             deleteComment: vi.fn(),
         },
         conversationMessages: {
+            getMessage: vi.fn(),
             deleteMessage: vi.fn(),
         },
     } as unknown as CommsApi,
@@ -191,6 +201,146 @@ describe(`${DELETE_OBJECT} tool`, () => {
                 )
                 expect(mockCommsApi.conversationMessages.deleteMessage).toHaveBeenCalledTimes(
                     targetType === 'message' ? 1 : 0,
+                )
+            },
+        )
+    })
+
+    // Deleting is permanent, so a client that can ask the user does, naming what would go.
+    describe('asking the user first', () => {
+        it('should ask before deleting a thread, naming it, and delete nothing yet', async () => {
+            ;(mockCommsApi.threads.getThread as Mock).mockResolvedValue(
+                createMockThread({ title: 'Q3 planning' }),
+            )
+            const request = createMockToolRequest('asking')
+
+            const result = await deleteObject.execute(
+                { targetType: 'thread', targetId: TEST_IDS.THREAD_1 },
+                mockCommsApi,
+                request,
+            )
+
+            expect(request.questions).toEqual([
+                {
+                    key: 'delete',
+                    message:
+                        'Delete the thread "Q3 planning" and all its comments? This can\'t be undone.',
+                },
+            ])
+            expect(result).toEqual({
+                inputRequired: expect.objectContaining({ resultType: 'input_required' }),
+            })
+            expect(mockCommsApi.threads.deleteThread).not.toHaveBeenCalled()
+        })
+
+        it.each([
+            {
+                targetType: 'comment' as const,
+                setUp: () =>
+                    (mockCommsApi.comments.getComment as Mock).mockResolvedValue(
+                        createMockComment({ content: 'Shipping on Friday' }),
+                    ),
+                message: 'Delete the comment "Shipping on Friday"? This can\'t be undone.',
+            },
+            {
+                targetType: 'message' as const,
+                setUp: () =>
+                    (mockCommsApi.conversationMessages.getMessage as Mock).mockResolvedValue(
+                        createMockConversationMessage({ content: 'See you at 3' }),
+                    ),
+                message: 'Delete the message "See you at 3"? This can\'t be undone.',
+            },
+        ])(
+            'should name the $targetType it would delete',
+            async ({ targetType, setUp, message }) => {
+                setUp()
+                const request = createMockToolRequest('asking')
+
+                await deleteObject.execute({ targetType, targetId: 'id-1' }, mockCommsApi, request)
+
+                expect(request.questions).toEqual([{ key: 'delete', message }])
+            },
+        )
+
+        it('should shorten a long comment in the question', async () => {
+            ;(mockCommsApi.comments.getComment as Mock).mockResolvedValue(
+                createMockComment({ content: 'a'.repeat(200) }),
+            )
+            const request = createMockToolRequest('asking')
+
+            await deleteObject.execute(
+                { targetType: 'comment', targetId: 'c1' },
+                mockCommsApi,
+                request,
+            )
+
+            expect(request.questions[0]?.message).toBe(
+                `Delete the comment "${'a'.repeat(79)}…"? This can't be undone.`,
+            )
+        })
+
+        it('should delete once the user confirms, without looking anything up again', async () => {
+            ;(mockCommsApi.threads.deleteThread as Mock).mockResolvedValue(undefined as never)
+
+            const result = await deleteObject.execute(
+                { targetType: 'thread', targetId: TEST_IDS.THREAD_1 },
+                mockCommsApi,
+                createMockToolRequest('confirmed'),
+            )
+
+            expect(mockCommsApi.threads.deleteThread).toHaveBeenCalledWith(TEST_IDS.THREAD_1)
+            expect(mockCommsApi.threads.getThread).not.toHaveBeenCalled()
+            expect(result.structuredContent).toEqual({
+                type: 'delete_thread_result',
+                success: true,
+                targetType: 'thread',
+                threadId: TEST_IDS.THREAD_1,
+            })
+        })
+
+        it.each([
+            {
+                targetType: 'thread' as const,
+                structuredContent: {
+                    type: 'delete_thread_result',
+                    success: false,
+                    targetType: 'thread',
+                    threadId: 'id-1',
+                },
+            },
+            {
+                targetType: 'comment' as const,
+                structuredContent: {
+                    type: 'delete_comment_result',
+                    success: false,
+                    targetType: 'comment',
+                    commentId: 'id-1',
+                },
+            },
+            {
+                targetType: 'message' as const,
+                structuredContent: {
+                    type: 'delete_message_result',
+                    success: false,
+                    targetType: 'message',
+                    messageId: 'id-1',
+                },
+            },
+        ])(
+            'should delete no $targetType when the user declines, and say not to retry',
+            async ({ targetType, structuredContent }) => {
+                const result = await deleteObject.execute(
+                    { targetType, targetId: 'id-1' },
+                    mockCommsApi,
+                    createMockToolRequest('declined'),
+                )
+
+                expect(mockCommsApi.threads.deleteThread).not.toHaveBeenCalled()
+                expect(mockCommsApi.comments.deleteComment).not.toHaveBeenCalled()
+                expect(mockCommsApi.conversationMessages.deleteMessage).not.toHaveBeenCalled()
+                expect(result.structuredContent).toEqual(structuredContent)
+                expect(result.textContent).toBe(
+                    `Not deleted: the user declined to delete the ${targetType} (id=id-1). Don't try again unless they ask.`,
                 )
             },
         )

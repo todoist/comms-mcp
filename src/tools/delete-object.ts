@@ -92,6 +92,69 @@ async function deleteMessageBranch(args: Args, client: CommsApi): Promise<Branch
     return { textContent: lines.join('\n'), structuredContent }
 }
 
+const CANNOT_UNDO = "This can't be undone."
+const QUOTE_LIMIT = 80
+
+/** A title or message short enough to quote in a question. */
+function quote(text: string): string {
+    return text.length > QUOTE_LIMIT ? `${text.slice(0, QUOTE_LIMIT - 1)}…` : text
+}
+
+/** The question put to the user before a delete, naming what would go. Looked up only to ask. */
+async function describeDeletion(client: CommsApi, { targetType, targetId }: Args): Promise<string> {
+    switch (targetType) {
+        case 'thread': {
+            const thread = await client.threads.getThread(targetId)
+            return `Delete the thread "${quote(thread.title)}" and all its comments? ${CANNOT_UNDO}`
+        }
+        case 'comment': {
+            const comment = await client.comments.getComment(targetId)
+            return `Delete the comment "${quote(comment.content)}"? ${CANNOT_UNDO}`
+        }
+        case 'message': {
+            const message = await client.conversationMessages.getMessage(targetId)
+            return `Delete the message "${quote(message.content)}"? ${CANNOT_UNDO}`
+        }
+    }
+}
+
+/** What a declined delete reports: nothing was deleted, and the model should not ask again. */
+function declinedBranch({ targetType, targetId }: Args): Branch {
+    const textContent = `Not deleted: the user declined to delete the ${targetType} (id=${targetId}). Don't try again unless they ask.`
+    switch (targetType) {
+        case 'thread':
+            return {
+                textContent,
+                structuredContent: {
+                    type: 'delete_thread_result',
+                    success: false,
+                    targetType,
+                    threadId: targetId,
+                },
+            }
+        case 'comment':
+            return {
+                textContent,
+                structuredContent: {
+                    type: 'delete_comment_result',
+                    success: false,
+                    targetType,
+                    commentId: targetId,
+                },
+            }
+        case 'message':
+            return {
+                textContent,
+                structuredContent: {
+                    type: 'delete_message_result',
+                    success: false,
+                    targetType,
+                    messageId: targetId,
+                },
+            }
+    }
+}
+
 const deleteObject = {
     name: ToolNames.DELETE_OBJECT,
     description:
@@ -99,15 +162,23 @@ const deleteObject = {
     parameters: ArgsSchema,
     outputSchema: DeleteObjectOutputSchema.shape,
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
-    async execute(args, client) {
+    async execute(args, client, request?) {
         const { targetType } = args
 
+        const confirmation = (await request?.confirm({
+            key: 'delete',
+            message: () => describeDeletion(client, args),
+        })) ?? { status: 'unavailable' }
+        if (confirmation.status === 'asking') return confirmation.result
+
         const branch =
-            targetType === 'thread'
-                ? await deleteThreadBranch(args, client)
-                : targetType === 'comment'
-                  ? await deleteCommentBranch(args, client)
-                  : await deleteMessageBranch(args, client)
+            confirmation.status === 'declined'
+                ? declinedBranch(args)
+                : targetType === 'thread'
+                  ? await deleteThreadBranch(args, client)
+                  : targetType === 'comment'
+                    ? await deleteCommentBranch(args, client)
+                    : await deleteMessageBranch(args, client)
 
         return {
             textContent: branch.textContent,
