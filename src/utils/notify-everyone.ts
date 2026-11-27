@@ -1,5 +1,5 @@
 import type { Channel, CommsApi } from '@todoist/comms-sdk'
-import type { InputRequiredToolResult, ToolRequest } from '@todoist/mcp-core'
+import type { Confirmation, InputRequiredToolResult, ToolRequest } from '@todoist/mcp-core'
 import { logConfirmation } from './confirmation-log.js'
 
 /** The web app asks before "Everyone in channel" notifies this many people or more. */
@@ -36,15 +36,23 @@ type NotifyEveryoneQuestion = {
  * can go ahead: the user confirmed, the client cannot ask, or the post reaches fewer people.
  * Throws when the user declines.
  *
- * The channel is looked up on every such call, since whether to ask depends on who would be
- * notified; unlike a lookup that only names something, a failure fails the call (the post would
- * most likely fail too). A channel whose members are not listed is asked about anyway.
+ * A call that carries the user's answer acts on it without looking anything up, so a decline
+ * stands even if the channel has since dropped below 10 people. Any other call looks the channel
+ * up, since whether to ask depends on who would be notified; unlike a lookup that only names
+ * something, a failure fails the call (the post would most likely fail too). A channel whose
+ * members are not listed is asked about anyway.
  */
 export async function confirmNotifyingEveryone(
     client: CommsApi,
     request: ToolRequest,
     { toolName, channelId, audience, describePost }: NotifyEveryoneQuestion,
 ): Promise<InputRequiredToolResult | undefined> {
+    const given = request.answer(QUESTION_KEY)
+    if (given) {
+        logConfirmation(toolName, given, { channelId })
+        return settle(given)
+    }
+
     const channel = await client.channels.getChannel(channelId)
     if (audience === 'if-channel-default' && !channelDefaultsToEveryone(channel)) return undefined
 
@@ -58,10 +66,12 @@ export async function confirmNotifyingEveryone(
             `${people === undefined ? 'Notify everyone in the channel?' : `Notify ${people} people?`} This ${await describePost()} and notifies everyone in the channel "${channel.name}".`,
     })
     logConfirmation(toolName, confirmation.status, { channelId, people })
+    return confirmation.status === 'asking' ? confirmation.result : settle(confirmation.status)
+}
 
-    switch (confirmation.status) {
-        case 'asking':
-            return confirmation.result
+/** Lets the post go ahead (`undefined`), or throws when the user declined. */
+function settle(status: Exclude<Confirmation['status'], 'asking'>): undefined {
+    switch (status) {
         case 'confirmed':
         case 'unavailable':
             return undefined

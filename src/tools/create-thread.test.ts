@@ -565,6 +565,7 @@ describe(`${CREATE_THREAD} tool`, () => {
             await createThread.execute(everyone, mockCommsApi, request)
 
             expect(request.checked).toEqual(['notify-everyone'])
+            expect(mockCommsApi.channels.getChannel).not.toHaveBeenCalled()
             expect(mockCommsApi.threads.createThread).toHaveBeenCalledWith(
                 expect.objectContaining({ notifyAudience: 'channel' }),
             )
@@ -575,11 +576,29 @@ describe(`${CREATE_THREAD} tool`, () => {
             mockCommsApi.threads.createThread.mockResolvedValue(createMockThread())
             const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
-            await createThread.execute(everyone, mockCommsApi, createMockToolRequest('confirmed'))
+            await createThread.execute(everyone, mockCommsApi, createMockToolRequest('unavailable'))
 
-            expect(consoleError).toHaveBeenCalledWith('create-thread: confirmation confirmed', {
+            expect(consoleError).toHaveBeenCalledWith('create-thread: confirmation unavailable', {
                 channelId: TEST_IDS.CHANNEL_1,
                 people: 10,
+            })
+            consoleError.mockRestore()
+        })
+
+        // The user answered about the channel as it was when asked. A member leaving before the
+        // call that carries the answer must not turn a decline into a post.
+        it('should stand by a decline when the channel has since dropped below 10 people', async () => {
+            channelOf(10)
+            const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+            await expect(
+                createThread.execute(everyone, mockCommsApi, createMockToolRequest('declined')),
+            ).rejects.toThrow('Not posted: the user declined to notify everyone in the channel.')
+
+            expect(mockCommsApi.threads.createThread).not.toHaveBeenCalled()
+            expect(mockCommsApi.channels.getChannel).not.toHaveBeenCalled()
+            expect(consoleError).toHaveBeenCalledWith('create-thread: confirmation declined', {
+                channelId: TEST_IDS.CHANNEL_1,
             })
             consoleError.mockRestore()
         })

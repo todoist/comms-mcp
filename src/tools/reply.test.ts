@@ -691,9 +691,26 @@ describe(`${REPLY} tool`, () => {
             await reply.execute(everyone, mockCommsApi, request)
 
             expect(request.checked).toEqual(['notify-everyone'])
+            expect(mockCommsApi.channels.getChannel).not.toHaveBeenCalled()
             expect(mockCommsApi.comments.createComment).toHaveBeenCalledWith(
                 expect.objectContaining({ notifyAudience: 'channel' }),
             )
+        })
+
+        // The user answered about the channel as it was when asked. A member leaving before the
+        // call that carries the answer must not turn a decline into a reply.
+        it('should stand by a decline when the channel has since dropped below 10 people', async () => {
+            mockCommsApi.channels.getChannel.mockResolvedValue(
+                createMockChannel({
+                    name: 'Design',
+                    userIds: Array.from({ length: 10 }, (_, index) => index + 1),
+                }),
+            )
+
+            await expect(
+                reply.execute(everyone, mockCommsApi, createMockToolRequest('declined')),
+            ).rejects.toThrow('Not posted: the user declined to notify everyone in the channel.')
+            expect(mockCommsApi.comments.createComment).not.toHaveBeenCalled()
         })
 
         it('should not ask when the reply notifies only the thread', async () => {
