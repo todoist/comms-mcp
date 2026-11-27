@@ -1,7 +1,9 @@
 import { getFullCommsURL, NOTIFY_AUDIENCES } from '@todoist/comms-sdk'
 import { z } from 'zod'
 import type { CommsTool } from '../comms-tool.js'
+import { confirmNotifyingEveryone } from '../utils/notify-everyone.js'
 import { type CreateThreadOutput, CreateThreadOutputSchema } from '../utils/output-schemas.js'
+import { quote } from '../utils/quote.js'
 import { ToolNames } from '../utils/tool-names.js'
 
 const ArgsSchema = {
@@ -46,9 +48,23 @@ const createThread = {
     parameters: ArgsSchema,
     outputSchema: CreateThreadOutputSchema.shape,
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
-    async execute(args, client) {
+    async execute(args, client, request?) {
         const { channelId, title, content, recipients, groups, notifyAudience, displayInInbox } =
             args
+
+        // A thread that names no audience gets the channel's defaults, which may be everyone.
+        const namesNoAudience =
+            recipients === undefined && groups === undefined && notifyAudience === undefined
+        // Called directly, with no MCP request, the tool cannot ask, so it looks nothing up.
+        if (request && (notifyAudience === 'channel' || namesNoAudience)) {
+            const pending = await confirmNotifyingEveryone(client, request, {
+                toolName: ToolNames.CREATE_THREAD,
+                channelId,
+                audience: notifyAudience === 'channel' ? 'always' : 'if-channel-default',
+                describePost: async () => `posts the thread "${quote(title)}"`,
+            })
+            if (pending) return pending
+        }
 
         const thread = await client.threads.createThread({
             channelId,

@@ -9,7 +9,9 @@ import {
 } from '@todoist/comms-sdk'
 import { z } from 'zod'
 import type { CommsTool } from '../comms-tool.js'
+import { confirmNotifyingEveryone } from '../utils/notify-everyone.js'
 import { type ReplyOutput, ReplyOutputSchema } from '../utils/output-schemas.js'
+import { quote } from '../utils/quote.js'
 import { ReplyTargetTypeSchema } from '../utils/target-types.js'
 import { ToolNames } from '../utils/tool-names.js'
 
@@ -121,7 +123,7 @@ const reply = {
     parameters: ArgsSchema,
     outputSchema: ReplyOutputSchema.shape,
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
-    async execute(args, client) {
+    async execute(args, client, request?) {
         const { targetType, targetId, content, recipients, groups, notifyAudience, threadAction } =
             args
 
@@ -135,6 +137,24 @@ const reply = {
             throw new Error(
                 'threadAction can only be used when replying to a thread; conversations cannot be closed.',
             )
+        }
+
+        // Called directly, with no MCP request, the tool cannot ask, so it looks nothing up.
+        if (request && targetType === 'thread' && notifyAudience === 'channel') {
+            const thread = await client.threads.getThread(targetId)
+            // A reply the thread would refuse is refused now, before the user is asked about it.
+            const refusal =
+                typeof thread.closed === 'boolean'
+                    ? describeRefusal(targetId, threadAction, thread.closed)
+                    : undefined
+            if (refusal) throw new Error(refusal)
+            const pending = await confirmNotifyingEveryone(client, request, {
+                toolName: ToolNames.REPLY,
+                channelId: thread.channelId,
+                audience: 'always',
+                describePost: async () => `replies to the thread "${quote(thread.title)}"`,
+            })
+            if (pending) return pending
         }
 
         const groupsToNotify =

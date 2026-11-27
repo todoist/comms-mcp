@@ -267,15 +267,29 @@ export function usersByIds<T extends { id: number }>(users: readonly T[]) {
 
 /**
  * A `ToolRequest` whose `confirm` answers `status`, standing in for the MCP call a tool serves.
- * `questions` records each question it was asked to put to the user, with a lazy message built.
+ * `confirmed` and `declined` stand for a call that carries that answer, so `answer` returns it
+ * too. `checked` records each key the tool looked for an answer to, through `answer` or
+ * `confirm`; `questions` records each question it was asked to put to the user, with a lazy
+ * message built.
  */
 export function createMockToolRequest(status: Confirmation['status']): ToolRequest & {
+    checked: string[]
     questions: { key: string; message: string }[]
 } {
+    const checked: string[] = []
     const questions: { key: string; message: string }[] = []
+    const check = (key: string) => {
+        if (!checked.includes(key)) checked.push(key)
+    }
     return {
+        checked,
         questions,
+        answer(key) {
+            check(key)
+            return status === 'confirmed' || status === 'declined' ? status : undefined
+        },
         async confirm({ key, message }) {
+            check(key)
             if (status !== 'asking') return { status }
             questions.push({
                 key,

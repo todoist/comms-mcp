@@ -55,13 +55,13 @@ If the tool pushes the fixed cost (the `tools/list` payload plus `instructions`)
 
 ## Ask before a write that cannot be undone
 
-`delete-object` asks the user to confirm before it deletes, through `request.confirm` from `@todoist/mcp-core` (the third argument of `execute`). A client that can show a form puts the question to the user; one that cannot gets `unavailable`, and the tool acts as it did before. Follow it for a new tool whose write cannot be undone:
+`delete-object` asks the user to confirm before it deletes, and `create-thread` and `reply` ask before notifying everyone in a channel of 10 or more people, as the web app does (`src/utils/notify-everyone.ts`). Both go through `request.confirm` from `@todoist/mcp-core` (the third argument of `execute`). A client that can show a form puts the question to the user; one that cannot gets `unavailable`, and the tool acts as it did before. Follow it for a new tool whose write cannot be undone:
 
 - Declare `request?` optional, so the tool can still be called with two arguments.
 - Run every check that can refuse the call before `confirm`, and write nothing before it: the tool runs from the top again once the user answers.
 - Pass `message` as a function when naming the object costs a lookup; it is built only when the question is asked. The lookup only names the object, so degrade it (`degradeWithLog`) to a question naming it by ID rather than failing the call.
 - Record each settled outcome with `logConfirmation` (`src/utils/confirmation-log.ts`), so declines and clients that cannot ask can be counted.
-- On `declined`, return a normal result that writes nothing and tells the model not to try again.
+- On `declined`, write nothing and tell the model not to try again: in a normal result when the tool's output schema can describe nothing having happened, otherwise in a thrown error (as a declined post does).
 - Test it with `createMockToolRequest` from `src/utils/test-helpers.ts`.
 
 ## Code Style

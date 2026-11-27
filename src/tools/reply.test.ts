@@ -1,9 +1,11 @@
 import { CommsRequestError, type CommsApi } from '@todoist/comms-sdk'
 import { vi } from 'vitest'
 import {
+    createMockChannel,
     createMockComment,
     createMockConversationMessage,
     createMockThread,
+    createMockToolRequest,
     extractStructuredContent,
     extractTextContent,
     TEST_IDS,
@@ -24,6 +26,9 @@ const mockCommsApi = vi.mocked(
             closeThread: vi.fn(),
             reopenThread: vi.fn(),
             getThread: vi.fn(),
+        },
+        channels: {
+            getChannel: vi.fn(),
         },
     } as unknown as CommsApi,
     true,
@@ -630,6 +635,115 @@ describe(`${REPLY} tool`, () => {
                     mockCommsApi,
                 ),
             ).rejects.toThrow('Conversation not found')
+        })
+    })
+
+    // The web app asks before "Everyone in channel" notifies 10 people or more, and so does this.
+    describe('asking before notifying everyone in the channel', () => {
+        beforeEach(() => {
+            mockCommsApi.threads.getThread.mockResolvedValue(
+                createMockThread({ title: 'Q3 kickoff', channelId: TEST_IDS.CHANNEL_1 }),
+            )
+            mockCommsApi.channels.getChannel.mockResolvedValue(
+                createMockChannel({
+                    name: 'Design',
+                    userIds: Array.from({ length: 13 }, (_, index) => index + 1),
+                }),
+            )
+        })
+
+        const everyone = {
+            targetType: 'thread' as const,
+            targetId: TEST_IDS.THREAD_1,
+            content: 'Moved to Thursday',
+            notifyAudience: 'channel' as const,
+        }
+
+        it('should ask before notifying 10 or more people, and reply nothing yet', async () => {
+            const request = createMockToolRequest('asking')
+
+            const result = await reply.execute(everyone, mockCommsApi, request)
+
+            expect(request.questions).toEqual([
+                {
+                    key: 'notify-everyone',
+                    message:
+                        'Notify 12 people? This replies to the thread "Q3 kickoff" and notifies everyone in the channel "Design".',
+                },
+            ])
+            expect(result).toEqual({
+                inputRequired: expect.objectContaining({ resultType: 'input_required' }),
+            })
+            expect(mockCommsApi.comments.createComment).not.toHaveBeenCalled()
+        })
+
+        it('should reply nothing when the user declines', async () => {
+            await expect(
+                reply.execute(everyone, mockCommsApi, createMockToolRequest('declined')),
+            ).rejects.toThrow('Not posted: the user declined to notify everyone in the channel.')
+            expect(mockCommsApi.comments.createComment).not.toHaveBeenCalled()
+        })
+
+        it('should reply once the user confirms', async () => {
+            mockCommsApi.comments.createComment.mockResolvedValue(createMockComment())
+            const request = createMockToolRequest('confirmed')
+
+            await reply.execute(everyone, mockCommsApi, request)
+
+            expect(request.checked).toEqual(['notify-everyone'])
+            expect(mockCommsApi.channels.getChannel).not.toHaveBeenCalled()
+            expect(mockCommsApi.comments.createComment).toHaveBeenCalledWith(
+                expect.objectContaining({ notifyAudience: 'channel' }),
+            )
+        })
+
+        // The user answered about the channel as it was when asked. A member leaving before the
+        // call that carries the answer must not turn a decline into a reply.
+        it('should stand by a decline when the channel has since dropped below 10 people', async () => {
+            mockCommsApi.channels.getChannel.mockResolvedValue(
+                createMockChannel({
+                    name: 'Design',
+                    userIds: Array.from({ length: 10 }, (_, index) => index + 1),
+                }),
+            )
+
+            await expect(
+                reply.execute(everyone, mockCommsApi, createMockToolRequest('declined')),
+            ).rejects.toThrow('Not posted: the user declined to notify everyone in the channel.')
+            expect(mockCommsApi.comments.createComment).not.toHaveBeenCalled()
+        })
+
+        it('should not ask when the reply notifies only the thread', async () => {
+            mockCommsApi.comments.createComment.mockResolvedValue(createMockComment())
+            const request = createMockToolRequest('asking')
+
+            await reply.execute(
+                { targetType: 'thread', targetId: TEST_IDS.THREAD_1, content: 'Moved to Thursday' },
+                mockCommsApi,
+                request,
+            )
+
+            expect(request.questions).toEqual([])
+            expect(mockCommsApi.channels.getChannel).not.toHaveBeenCalled()
+        })
+
+        // Asking about a reply the thread would refuse only for the post to fail afterwards
+        // would waste the user's answer.
+        it('should refuse a reply to a closed thread before asking anything', async () => {
+            mockCommsApi.threads.getThread.mockResolvedValue(
+                createMockThread({
+                    title: 'Q3 kickoff',
+                    channelId: TEST_IDS.CHANNEL_1,
+                    closed: true,
+                }),
+            )
+            const request = createMockToolRequest('asking')
+
+            await expect(reply.execute(everyone, mockCommsApi, request)).rejects.toThrow(
+                `Thread ${TEST_IDS.THREAD_1} is closed, so it does not accept new comments`,
+            )
+            expect(request.checked).toEqual([])
+            expect(mockCommsApi.comments.createComment).not.toHaveBeenCalled()
         })
     })
 })
