@@ -33,7 +33,7 @@ Reviewers, Doistbot included, apply these to every change:
 ## Git hooks and agent tooling
 
 - Commits and pushes to `main` are refused by the git hooks. Work on a branch.
-- When a turn changes code that `npm run verify` has not passed, the end-of-turn hook (Claude Code and Codex; Cursor untested) sends you back once. Run verify, or stop on purpose and say what is unverified.
+- Your `git push` and `gh pr create` are stopped until `npm run verify` has passed on exactly the commit being pushed (Claude Code and Codex hooks; Cursor untested). Verify, then commit exactly what it saw, or commit first and verify the clean tree. If something must be pushed unverified, ask the person you're working with to push it.
 - Agent tooling lives in `.agents/scripts/`, never in `scripts/`.
 - How it all fits together: [`docs/agents.md`](docs/agents.md).
 

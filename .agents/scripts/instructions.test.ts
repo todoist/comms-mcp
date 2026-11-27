@@ -6,7 +6,6 @@ import { basename, dirname, join, relative, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { git } from './lib/git.ts'
 import { REPO_ROOT } from './lib/test-repo.ts'
-import { AGENT_DOCS } from './lib/tree.ts'
 
 const SKILLS_DIR = join(REPO_ROOT, '.agents/skills')
 const skills = readdirSync(SKILLS_DIR).filter((name) => !name.startsWith('.'))
@@ -19,9 +18,10 @@ function markdownFiles(dir: string): string[] {
     })
 }
 
-// The same docs verify treats as code, so a doc this test reads is never skipped as prose.
 const DOCS = [
-    ...[...AGENT_DOCS].map((path) => join(REPO_ROOT, path)),
+    join(REPO_ROOT, 'AGENTS.md'),
+    join(REPO_ROOT, 'CLAUDE.md'),
+    join(REPO_ROOT, 'docs/agents.md'),
     ...markdownFiles(join(REPO_ROOT, '.agents')),
 ]
 

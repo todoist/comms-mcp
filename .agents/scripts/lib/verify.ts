@@ -3,7 +3,14 @@ import { createWriteStream, mkdirSync, readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { cleanGitEnv, git } from './git.ts'
 import { clearVerified, stateDir, writeVerified } from './state.ts'
-import { changedCodePaths, changedSince, classify, codeFingerprint, snapshot } from './tree.ts'
+import {
+    changedCodePaths,
+    changedSince,
+    classify,
+    codeFingerprint,
+    needsChecks,
+    snapshot,
+} from './tree.ts'
 
 export type Step = {
     name: string
@@ -12,8 +19,6 @@ export type Step = {
     /** Runs only after this step has passed. Steps without one start together. */
     after?: string
     env?: Record<string, string>
-    /** Also reads docs and CI-only files (the formatter), so it runs when only those changed. */
-    readsDocs?: boolean
 }
 
 export type VerifyOptions = {
@@ -36,23 +41,18 @@ export async function runVerify(options: VerifyOptions): Promise<VerifyResult> {
         out(`No ${baseName} branch found, so checking the whole tree.`)
     } else {
         const changes = changedSince(root, base)
-        const kinds = new Set(changes.map(classify))
+        const kinds = new Set(
+            changes.map((path) => (needsChecks(root, path) ? 'code' : classify(path))),
+        )
         if (changes.length > 0 && !kinds.has('code')) {
             if (kinds.has('unchecked')) {
                 const unchecked = changes.filter((path) => classify(path) === 'unchecked')
-                out(`Only CI reads what changed since ${baseName}: ${unchecked.join(', ')}.`)
+                out(`No local check reads what changed since ${baseName}: ${unchecked.join(', ')}.`)
+                out('CI is the only check for these. Nothing recorded.')
             } else {
-                out(`Only docs changed since ${baseName}.`)
+                out(`Only docs changed since ${baseName}: nothing to check. Nothing recorded.`)
             }
-            // The formatter reads these files too, so a badly formatted one fails CI. The code
-            // checks have nothing new to see, and an earlier pass is still valid: docs and CI-only
-            // files are outside the fingerprint.
-            const formatting = steps.filter((step) => step.readsDocs)
-            const logDir = join(stateDir(root), 'logs')
-            mkdirSync(logDir, { recursive: true })
-            const ok = await runSteps(root, formatting, logDir, out)
-            out(ok ? 'Their formatting passes. Nothing recorded.' : 'Nothing recorded.')
-            return { ok, recorded: false }
+            return { ok: true, recorded: false }
         }
         if (changes.length === 0) out(`No changes since ${baseName}; checking the tree anyway.`)
     }

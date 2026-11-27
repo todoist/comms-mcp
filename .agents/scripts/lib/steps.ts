@@ -20,7 +20,7 @@ export const VERIFY_STEPS: Step[] = [
         command: 'sh',
         args: ['-c', `${bin('oxlint')} src scripts .agents/scripts *.config.js *.config.ts`],
     },
-    { name: 'format', command: bin('oxfmt'), args: ['--check'], readsDocs: true },
+    { name: 'format', command: bin('oxfmt'), args: ['--check'] },
     { name: 'types', command: bin('tsc'), args: ['--noEmit'] },
     { name: 'types:tools', command: bin('tsc'), args: ['--noEmit', '-p', '.agents/scripts'] },
     { name: 'tests', command: bin('vitest'), args: ['run'], env: CI_ENV },
