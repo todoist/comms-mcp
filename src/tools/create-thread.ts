@@ -55,6 +55,7 @@ const createThread = {
         // Called directly, with no MCP request, the tool cannot ask, so it looks nothing up.
         if (request && notifyAudience === 'channel') {
             const confirmation = await confirmNotifyingEveryone(client, request, {
+                toolName: ToolNames.CREATE_THREAD,
                 channelId,
                 describePost: async () => `posts the thread "${quote(title)}"`,
             })

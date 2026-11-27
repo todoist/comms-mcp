@@ -143,6 +143,7 @@ const reply = {
         if (request && targetType === 'thread' && notifyAudience === 'channel') {
             const thread = await client.threads.getThread(targetId)
             const confirmation = await confirmNotifyingEveryone(client, request, {
+                toolName: ToolNames.REPLY,
                 channelId: thread.channelId,
                 describePost: async () => `replies to the thread "${quote(thread.title)}"`,
             })

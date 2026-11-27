@@ -1,5 +1,6 @@
 import type { CommsApi } from '@todoist/comms-sdk'
 import type { Confirmation, ToolRequest } from '@todoist/mcp-core'
+import { logConfirmation } from './confirmation-log.js'
 
 /** The web app asks before "Everyone in channel" notifies this many people or more. */
 const MIN_PEOPLE_BEFORE_ASKING = 10
@@ -9,23 +10,31 @@ const MIN_PEOPLE_BEFORE_ASKING = 10
  * app does. Resolves to `undefined` when the channel is too small to ask about.
  *
  * The channel is looked up on every such call, to count who would be notified: whether to ask
- * depends on it. `describePost` finishes the sentence "This …", such as `posts the thread "X"`.
+ * depends on it, so unlike a lookup that only names something, a failure fails the call (the post
+ * would most likely fail too). `describePost` finishes the sentence "This …", such as
+ * `posts the thread "X"`. The settled outcome is recorded with `logConfirmation`.
  */
 export async function confirmNotifyingEveryone(
     client: CommsApi,
     request: ToolRequest,
-    { channelId, describePost }: { channelId: string; describePost: () => Promise<string> },
+    {
+        toolName,
+        channelId,
+        describePost,
+    }: { toolName: string; channelId: string; describePost: () => Promise<string> },
 ): Promise<Confirmation | undefined> {
     const channel = await client.channels.getChannel(channelId)
     // Like the web app, count the members less the poster, who is not notified.
     const people = Math.max((channel.userIds?.length ?? 0) - 1, 0)
     if (people < MIN_PEOPLE_BEFORE_ASKING) return undefined
 
-    return request.confirm({
+    const confirmation = await request.confirm({
         key: 'notify-everyone',
         message: async () =>
             `Notify ${people} people? This ${await describePost()} and notifies everyone in the channel "${channel.name}".`,
     })
+    logConfirmation(toolName, confirmation.status, { channelId, people })
+    return confirmation
 }
 
 /**

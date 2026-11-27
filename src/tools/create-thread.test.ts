@@ -504,6 +504,20 @@ describe(`${CREATE_THREAD} tool`, () => {
             )
         })
 
+        it('should record the outcome, with IDs and the head count only', async () => {
+            channelOf(11)
+            mockCommsApi.threads.createThread.mockResolvedValue(createMockThread())
+            const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+            await createThread.execute(everyone, mockCommsApi, createMockToolRequest('confirmed'))
+
+            expect(consoleError).toHaveBeenCalledWith('create-thread: confirmation confirmed', {
+                channelId: TEST_IDS.CHANNEL_1,
+                people: 10,
+            })
+            consoleError.mockRestore()
+        })
+
         it('should post nothing when the user declines, and say how to reach fewer people', async () => {
             channelOf(11)
 
