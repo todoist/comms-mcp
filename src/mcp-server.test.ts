@@ -38,9 +38,9 @@ describe('confirming a delete over MCP', () => {
     })
 
     async function deleteThreadAnswering(answer: 'confirm' | 'decline' | 'cannot ask') {
-        vi.spyOn(ThreadsClient.prototype, 'getThread').mockResolvedValue(
-            createMockThread({ title: 'Q3 planning' }),
-        )
+        const getThread = vi
+            .spyOn(ThreadsClient.prototype, 'getThread')
+            .mockResolvedValue(createMockThread({ title: 'Q3 planning' }))
         const deleteThread = vi
             .spyOn(ThreadsClient.prototype, 'deleteThread')
             .mockResolvedValue(undefined as never)
@@ -66,7 +66,12 @@ describe('confirming a delete over MCP', () => {
                 name: 'delete-object',
                 arguments: { targetType: 'thread', targetId: TEST_IDS.THREAD_1 },
             })
-            return { questions, deleteThread, structuredContent: result.structuredContent }
+            return {
+                questions,
+                getThread,
+                deleteThread,
+                structuredContent: result.structuredContent,
+            }
         } finally {
             await client.close()
             await server.close()
@@ -81,6 +86,7 @@ describe('confirming a delete over MCP', () => {
             'Delete the thread "Q3 planning" and all its comments? This can\'t be undone.',
         ])
         expect(deleteThread).toHaveBeenCalledTimes(1)
+        expect(deleteThread).toHaveBeenCalledWith(TEST_IDS.THREAD_1)
         expect(structuredContent).toEqual({
             type: 'delete_thread_result',
             success: true,
@@ -102,9 +108,12 @@ describe('confirming a delete over MCP', () => {
     })
 
     it('should delete without asking when the client cannot ask', async () => {
-        const { questions, deleteThread } = await deleteThreadAnswering('cannot ask')
+        const { questions, getThread, deleteThread } = await deleteThreadAnswering('cannot ask')
 
         expect(questions).toEqual([])
+        // Nothing is looked up for a question that cannot be asked.
+        expect(getThread).not.toHaveBeenCalled()
         expect(deleteThread).toHaveBeenCalledTimes(1)
+        expect(deleteThread).toHaveBeenCalledWith(TEST_IDS.THREAD_1)
     })
 })

@@ -1,5 +1,5 @@
 import type { CommsApi } from '@todoist/comms-sdk'
-import { type Mock, vi } from 'vitest'
+import { afterEach, type Mock, vi } from 'vitest'
 import {
     createMockComment,
     createMockConversationMessage,
@@ -344,5 +344,63 @@ describe(`${DELETE_OBJECT} tool`, () => {
                 )
             },
         )
+    })
+
+    describe('degrading and recording the confirmation', () => {
+        let consoleError: ReturnType<typeof vi.spyOn>
+
+        beforeEach(() => {
+            consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+        })
+
+        afterEach(() => {
+            consoleError.mockRestore()
+        })
+
+        // The name only makes the question clearer: a failed lookup must not stop the delete.
+        it('should name the thread by its ID when it cannot be looked up, and log why', async () => {
+            ;(mockCommsApi.threads.getThread as Mock).mockRejectedValue(new Error('Forbidden'))
+            const request = createMockToolRequest('asking')
+
+            await deleteObject.execute(
+                { targetType: 'thread', targetId: TEST_IDS.THREAD_1 },
+                mockCommsApi,
+                request,
+            )
+
+            expect(request.questions).toEqual([
+                {
+                    key: 'delete',
+                    message: `Delete this thread (id=${TEST_IDS.THREAD_1}) and all its comments? This can't be undone.`,
+                },
+            ])
+            expect(consoleError).toHaveBeenCalledWith(
+                'delete-object: failed to look up the thread for the delete question',
+                {
+                    targetType: 'thread',
+                    targetId: TEST_IDS.THREAD_1,
+                    error: { name: 'Error', message: 'Forbidden' },
+                },
+            )
+        })
+
+        it.each([
+            { status: 'declined' as const, request: createMockToolRequest('declined') },
+            { status: 'confirmed' as const, request: createMockToolRequest('confirmed') },
+            { status: 'unavailable' as const, request: undefined },
+        ])('should record a $status confirmation, with IDs only', async ({ status, request }) => {
+            ;(mockCommsApi.threads.deleteThread as Mock).mockResolvedValue(undefined as never)
+
+            await deleteObject.execute(
+                { targetType: 'thread', targetId: TEST_IDS.THREAD_1 },
+                mockCommsApi,
+                request,
+            )
+
+            expect(consoleError).toHaveBeenCalledWith(`delete-object: confirmation ${status}`, {
+                targetType: 'thread',
+                targetId: TEST_IDS.THREAD_1,
+            })
+        })
     })
 })
