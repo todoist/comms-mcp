@@ -1,3 +1,9 @@
+## [11.4.0](https://github.com/todoist/comms-mcp/compare/v11.3.0...v11.4.0) (2026-11-27)
+
+### Features
+
+* add a pin tool for thread comments and chat messages ([#101](https://github.com/todoist/comms-mcp/issues/101)) ([c252056](https://github.com/todoist/comms-mcp/commit/c252056165b01963f90c9631ff16b91bda37aaef))
+
 ## [11.3.0](https://github.com/todoist/comms-mcp/compare/v11.2.2...v11.3.0) (2026-11-27)
 
 ### Features
