@@ -1,3 +1,9 @@
+## [11.3.0](https://github.com/todoist/comms-mcp/compare/v11.2.2...v11.3.0) (2026-11-27)
+
+### Features
+
+* **update-object:** add silent for thread renames ([#100](https://github.com/todoist/comms-mcp/issues/100)) ([917faaf](https://github.com/todoist/comms-mcp/commit/917faaf0ebfcb779e58ffb15907436a0999474e3))
+
 ## [11.2.2](https://github.com/todoist/comms-mcp/compare/v11.2.1...v11.2.2) (2026-11-27)
 
 ### Bug Fixes
