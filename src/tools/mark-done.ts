@@ -109,7 +109,7 @@ const markDone = {
         // workspace's inbox, so a channel archive is refused before anything runs.
         if (archive && channelId) {
             throw new Error(
-                'Archiving by channelId is not supported yet: the server can only archive a whole workspace inbox. Pass archive: false to mark the channel read, or pass the thread `ids` to archive.',
+                'Archiving by channelId is not supported yet: the server can only archive a whole workspace inbox. Pass archive: false to mark the channel read, or pass the thread `ids` instead of channelId to archive.',
             )
         }
 

@@ -472,15 +472,19 @@ describe(`${MARK_DONE} tool`, () => {
         it.each([
             ['with its workspace, archiving by default', { workspaceId: TEST_IDS.WORKSPACE_1 }],
             ['on its own', { archive: true }],
+            ['while clearing unread', { workspaceId: TEST_IDS.WORKSPACE_1, clearUnread: true }],
         ])('refuses to archive a channel %s', async (_name, args) => {
             await expect(
                 markDone.execute(
                     { type: 'thread', channelId: TEST_IDS.CHANNEL_1, ...args },
                     mockCommsApi,
                 ),
-            ).rejects.toThrow('Archiving by channelId is not supported yet')
+            ).rejects.toThrow(
+                'Archiving by channelId is not supported yet: the server can only archive a whole workspace inbox. Pass archive: false to mark the channel read, or pass the thread `ids` instead of channelId to archive.',
+            )
 
             expect(mockCommsApi.threads.markAllRead).not.toHaveBeenCalled()
+            expect(mockCommsApi.threads.clearUnread).not.toHaveBeenCalled()
             expect(mockCommsApi.inbox.archiveAll).not.toHaveBeenCalled()
         })
 
